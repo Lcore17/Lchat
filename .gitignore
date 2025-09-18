@@ -1,0 +1,18 @@
+# Node modules
+node_modules/
+
+# Cache and model files
+backend/node_modules/
+backend/.cache/
+*.onnx
+*.exe
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment
+.env
