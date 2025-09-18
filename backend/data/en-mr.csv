@@ -1,0 +1,420 @@
+hello,हॅलो
+hi,हाय
+hey,अहो
+goodbye,निरोप
+bye,बाय
+welcome,आपले स्वागत आहे
+morning,सकाळी
+afternoon,दुपारी
+evening,संध्याकाळ
+night,रात्री
+good morning,सुप्रभात
+good afternoon,शुभ दुपार
+good evening,शुभ संध्याकाळ
+good night,शुभ रात्री
+see you later.,नंतर भेटू.
+take care.,काळजी घ्या.
+what,काय
+when,जेव्हा
+where,कुठे
+who,WHO
+why,का
+how,कसे
+are you?,आपण आहात?
+what is your name?,तुझे नाव काय आहे?
+what are you doing?,आपण काय करीत आहात?
+what time is it?,किती वेळ आहे?
+where are you from?,तू कोठून आहेस?
+how was your day?,तुमचा दिवस कसा होता?
+what's up?,काय चालले आहे?
+what do you mean?,तुम्हाला काय म्हणायचे आहे?
+are you sure?,तुम्हाला खात्री आहे का?
+what do you think?,तुला काय वाटते?
+can we talk?,आम्ही बोलू शकतो?
+what happened?,काय झाले?
+are you okay?,आपण ठीक आहात?
+yes,होय
+no,नाही
+ok,ठीक आहे
+okay,ठीक आहे
+cool,मस्त
+great,छान
+good,चांगले
+bad,वाईट
+maybe,कदाचित
+sure,नक्की
+never,कधीही नाही
+always,नेहमी
+of course.,नक्कीच.
+i agree.,मी सहमत आहे.
+i disagree.,मी सहमत नाही.
+no problem.,काही हरकत नाही.
+sounds good.,छान वाटते.
+that's a good idea.,ती चांगली कल्पना आहे.
+i,मी
+you,आपण
+he,तो
+she,ती
+we,आम्ही
+they,ते
+me,मी
+him,त्याला
+her,ती
+us,आम्हाला
+them,त्यांना
+my,माझे
+your,तुझे
+his,त्याचे
+our,आमची
+their,त्यांचे
+friend,मित्र
+friends,मित्र
+family,कुटुंब
+mother,आई
+father,वडील
+sister,बहीण
+brother,भाऊ
+love,प्रेम
+baby,बाळ
+sir,सर
+madam,मॅडम
+home,मुख्यपृष्ठ
+work,काम
+school,शाळा
+college,कॉलेज
+office,कार्यालय
+here,येथे
+there,तेथे
+place,ठिकाण
+city,शहर
+country,देश
+world,जग
+time,वेळ
+today,आज
+tomorrow,उद्या
+yesterday,काल
+now,आता
+later,नंतर
+soon,लवकरच
+minute,मिनिट
+hour,तास
+day,दिवस
+week,आठवडा
+month,महिना
+year,वर्ष
+message,संदेश
+text,मजकूर
+photo,फोटो
+video,व्हिडिओ
+song,गाणे
+movie,चित्रपट
+game,खेळ
+food,अन्न
+water,पाणी
+tea,चहा
+coffee,कॉफी
+name,नाव
+number,क्रमांक
+money,पैसा
+help,मदत
+problem,समस्या
+idea,कल्पना
+thing,गोष्ट
+things,गोष्टी
+life,जीवन
+job,नोकरी
+car,कार
+bike,दुचाकी
+bus,बस
+train,ट्रेन
+go,जा
+come,या
+see,पहा
+look,पहा
+watch,पहा
+listen,ऐका
+eat,खा
+drink,प्या
+sleep,झोप
+wait,प्रतीक्षा करा
+talk,चर्चा
+speak,बोला
+say,म्हणा
+tell,सांगा
+ask,विचारा
+answer,उत्तर
+know,माहित आहे
+think,विचार करा
+understand,समजून घ्या
+mean,म्हणजे
+play,खेळा
+like,आवडले
+hate,द्वेष
+want,हवे आहे
+need,गरज
+give,द्या
+take,घ्या
+send,पाठवा
+receive,प्राप्त
+call,कॉल
+meet,भेटा
+start,प्रारंभ करा
+stop,थांबवा
+finish,समाप्त
+try,प्रयत्न करा
+do,करा
+make,बनवा
+happy,आनंदी
+sad,दु: खी
+angry,राग
+tired,थकलेले
+hungry,भुकेले
+busy,व्यस्त
+free,मुक्त
+new,नवीन
+old,जुने
+big,मोठे
+small,लहान
+long,लांब
+short,लहान
+hot,गरम
+cold,थंड
+nice,छान
+beautiful,सुंदर
+awesome,छान
+amazing,आश्चर्यकारक
+really,खरोखर
+very,खूप
+so,तर
+too,खूप
+then,मग
+sometimes,कधीकधी
+often,अनेकदा
+again,पुन्हा
+fast,वेगवान
+slow,हळू
+early,लवकर
+late,उशीरा
+and,आणि
+but,पण
+or,किंवा
+because,कारण
+if,जर
+for,साठी
+in,मध्ये
+on,चालू
+at,वर
+to,टू
+with,सह
+from,पासून
+about,बद्दल
+of,च्या
+"i am fine, thank you.","मी ठीक आहे, धन्यवाद."
+my name is...,माझे नाव आहे ...
+nice to meet you.,तुला भेटून आनंद झाला.
+i'm sorry.,मला माफ करा.
+i am from...,मी पासून आहे ...
+can you help me?,आपण मला मदत करू शकता?
+i don't know.,मला माहित नाही.
+i don't understand.,मला समजत नाही.
+let's go.,चला जाऊया.
+nothing much.,जास्त काही नाही.
+it was good.,ते चांगले होते.
+i am thirsty.,मला तहान लागली आहे.
+where is the restroom?,प्रसाधनगृह कुठे आहे?
+i need to rest.,मला विश्रांती घेण्याची गरज आहे.
+talk to you later.,नंतर आपल्याशी बोला.
+on my way.,माझ्या मार्गावर.
+be right back.,बरोबर परत व्हा.
+that's funny.,ते मजेदार आहे.
+that's great!,ते छान आहे!
+oh my god!,अरे देवा!
+congratulations!,अभिनंदन!
+happy birthday!,वाढदिवसाच्या हार्दिक शुभेच्छा!
+i miss you.,मला तुझी आठवण येते.
+i love you.,मी तुझ्यावर प्रेम करतो.
+call me.,मला कॉल करा.
+text me.,मला मजकूर पाठवा.
+what are your plans for today?,आज आपल्या काय योजना आहेत?
+are you free tomorrow?,आपण उद्या मुक्त आहात?
+i am looking forward to it.,मी याची अपेक्षा करीत आहे.
+it's urgent.,हे तातडीचे आहे.
+don't worry.,काळजी करू नका.
+it's okay.,हे ठीक आहे.
+that's amazing!,ते आश्चर्यकारक आहे!
+i am so happy.,मी खूप आनंदी आहे.
+i am so sad.,मी खूप दु: खी आहे.
+i am excited.,मी उत्साहित आहे.
+i am bored.,मी कंटाळलो आहे.
+i have to go.,मला जावे लागेल.
+i will be there.,मी तिथे असेल.
+i need help.,मला मदतीची आवश्यकता आहे.
+wait a moment.,एक क्षण थांबा.
+i am just kidding.,मी फक्त गंमत करत आहे.
+i am not sure.,मला खात्री नाही.
+i have no idea.,मला कल्पना नाही.
+it's beautiful.,ते सुंदर आहे.
+it's delicious.,हे मधुर आहे.
+i am feeling sick.,मी आजारी आहे.
+get well soon.,लवकरच बरे व्हा.
+where are we going?,आम्ही कुठे जात आहोत?
+i'm lost.,मी हरवले आहे.
+can you repeat that?,आपण याची पुनरावृत्ती करू शकता?
+speak slowly.,हळू हळू बोला.
+what is this?,हे काय आहे?
+how much is this?,हे किती आहे?
+i'll take it.,मी ते घेईन.
+do you have this in another color?,आपल्याकडे हे दुसर्‍या रंगात आहे का?
+where can i find...?,मला कुठे सापडेल ...?
+i'm just looking.,मी फक्त पहात आहे.
+have a great day!,आपला दिवस चांगला जावो!
+you too!,तूसुद्धा!
+good luck!,शुभेच्छा!
+lol,LOL
+brb,बीआरबी
+omw,ओएमडब्ल्यू
+btw,बीटीडब्ल्यू
+imo,आयएमओ
+ttyl,ttyl
+idk,आयडीके
+asap,शक्य तितक्या लवकर
+fomo,FOMO
+goat,बकरी
+lit,लिट
+flex,फ्लेक्स
+salty,खारट
+cap,कॅप
+congrats,अभिनंदन
+thanks,धन्यवाद
+sup,सुप
+yo,यो
+dude,मुला
+bro,भाऊ
+sis,sis
+man,माणूस
+woman,स्त्री
+girl,मुलगी
+boy,मुलगा
+person,व्यक्ती
+people,लोक
+moment,क्षण
+way,मार्ग
+part,भाग
+group,गट
+company,कंपनी
+question,प्रश्न
+fact,वस्तुस्थिती
+story,कथा
+book,पुस्तक
+music,संगीत
+art,कला
+image,प्रतिमा
+picture,चित्र
+color,रंग
+air,हवा
+fire,आग
+earth,पृथ्वी
+sun,सूर्य
+moon,चंद्र
+star,तारा
+sky,आकाश
+sea,समुद्र
+river,नदी
+mountain,माउंटन
+tree,झाड
+flower,फ्लॉवर
+animal,प्राणी
+dog,कुत्रा
+cat,मांजर
+bird,पक्षी
+fish,मासे
+house,घर
+room,खोली
+door,दरवाजा
+window,विंडो
+street,रस्ता
+road,रस्ता
+town,शहर
+village,गाव
+university,विद्यापीठ
+career,करिअर
+price,किंमत
+cost,किंमत
+change,बदला
+news,बातम्या
+information,माहिती
+data,डेटा
+system,प्रणाली
+program,कार्यक्रम
+project,प्रकल्प
+team,टीम
+member,सदस्य
+leader,नेता
+boss,बॉस
+student,विद्यार्थी
+teacher,शिक्षक
+doctor,डॉक्टर
+lawyer,वकील
+engineer,अभियंता
+artist,कलाकार
+writer,लेखक
+player,प्लेअर
+fan,चाहता
+enemy,शत्रू
+peace,शांतता
+war,युद्ध
+hope,आशा
+fear,भीती
+dream,स्वप्न
+reality,वास्तविकता
+truth,सत्य
+lie,खोटे बोलणे
+history,इतिहास
+future,भविष्य
+past,भूतकाळ
+present,उपस्थित
+How,कसे
+just,फक्त
+kidding,मस्करी
+Prem,Prem
+am,आहे
+prem,prem
+are,आहेत
+athleisure,क्रिडा-आरामी
+pen,पेन
+உனக்காக,तुझ्यासाठी
+this,हे
+is,आहे
+sentence,वाक्य
+have,असणे
+any,काही
+also,सुद्धा
+smile,हसू
+it's,ते आहे
+a,एक
+toy,खेळणे
+hiii,हाय
+getting,मिळवत
+the,तो
+Go the extra mile,एक पाऊल पुढे जा.
+It's not getting back,ते परत येत नाही.
+This is a new toy to play with,हे खेळायला एक नवीन खेळणं आहे.
+Cut corners,शॉर्टकट घेणे
+"Hiii 
+Really?","हाय
+खरंच?"
+Break a leg,शुभेच्छा!
+He'll nikhil,तो निखिलला बघेल.
+"jpg","जेपीजी"
+"IMG","चित्र"
+"felt","वाटले"
+"off","बंद"
+"looking","पाहत"
+"gorgeous","सुंदर"
+"even","सुद्धा"
+"didn't","नाही"
+"Saw","करवत"
+"i love you","मी तुझ्यावर प्रेम करतो."
+"Really looking gorgeous","खरोखरच सुंदर दिसते"
+"voice-1757953136266.m4a","आवाज-1757953136266.m4a"
+"You are looking really nice today even if I didn't Saw you","आज तू खूप छान दिसतेस, जरी मी तुला पाहिलं नसेल तरी"

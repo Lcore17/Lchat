@@ -1,0 +1,432 @@
+hello,नमस्ते
+hi,नमस्ते
+hey,अरे
+goodbye,अलविदा
+bye,अलविदा
+welcome,स्वागत
+morning,सुबह
+afternoon,दोपहर
+evening,शाम
+night,रात
+good morning,शुभ प्रभात
+good afternoon,शुभ दोपहर
+good evening,शुभ संध्या
+good night,शुभ रात्रि
+see you later.,बाद में मिलते हैं।
+take care.,अपना ध्यान रखना।
+what,क्या
+when,कब
+where,कहाँ
+who,कौन
+why,क्यों
+how,कैसे
+are you?,क्या आप?
+what is your name?,आपका क्या नाम है?
+what are you doing?,आप क्या कर रहे हो?
+what time is it?,ये वक़्त क्या है?
+where are you from?,आप कहाँ से हैं?
+how was your day?,आपका दिन कैसा रहा?
+what's up?,क्या चल रहा है?
+what do you mean?,आपका क्या मतलब है?
+are you sure?,क्या आपको यकीन है?
+what do you think?,आप क्या सोचते हैं?
+can we talk?,क्या हम बात कर सकते हैं?
+what happened?,क्या हुआ?
+are you okay?,तुम ठीक हो?
+yes,हाँ
+no,नहीं
+ok,ठीक है
+okay,ठीक है
+cool,ठंडा
+great,महान
+good,अच्छा
+bad,खराब
+maybe,शायद
+sure,ज़रूर
+never,कभी नहीं
+always,हमेशा
+of course.,बिल्कुल।
+i agree.,मैं सहमत हूं।
+i disagree.,मैं असहमत हूं।
+no problem.,कोई बात नहीं।
+sounds good.,सुनने में तो अच्छा लगता है।
+that's a good idea.,वह एक अच्छा विचार है।
+i,मैं
+you,आप
+he,वह
+she,वह
+we,हम
+they,वे
+me,मुझे
+him,उसे
+her,उसकी
+us,हम
+them,उन्हें
+my,मेरा
+your,आपका
+his,उसका
+our,हमारा
+their,उनका
+friend,दोस्त
+friends,दोस्त
+family,परिवार
+mother,माँ
+father,पिता
+sister,बहन
+brother,भाई
+love,प्यार
+baby,बच्चा
+sir,महोदय
+madam,महोदया
+home,घर
+work,काम
+school,विद्यालय
+college,कॉलेज
+office,कार्यालय
+here,यहाँ
+there,वहाँ
+place,जगह
+city,शहर
+country,देश
+world,दुनिया
+time,समय
+today,आज
+tomorrow,कल
+yesterday,कल
+now,अब
+later,बाद में
+soon,जल्द ही
+minute,मिनट
+hour,घंटा
+day,दिन
+week,सप्ताह
+month,महीना
+year,वर्ष
+message,संदेश
+text,मूलपाठ
+photo,तस्वीर
+video,वीडियो
+song,गाना
+movie,चलचित्र
+game,खेल
+food,खाना
+water,पानी
+tea,चाय
+coffee,कॉफी
+name,नाम
+number,संख्या
+money,धन
+help,मदद
+problem,संकट
+idea,विचार
+thing,चीज़
+things,चीज़ें
+life,ज़िंदगी
+job,काम
+car,कार
+bike,बाइक
+bus,बस
+train,रेलगाड़ी
+go,जाना
+come,आना
+see,देखना
+look,देखना
+watch,घड़ी
+listen,सुनना
+eat,खाओ
+drink,पीना
+sleep,नींद
+wait,इंतज़ार
+talk,बात करना
+speak,बोलना
+say,कहना
+tell,कहना
+ask,पूछना
+answer,उत्तर
+know,जानना
+think,सोचना
+understand,समझना
+mean,अर्थ
+play,खेल
+like,पसंद
+hate,घृणा
+want,चाहना
+need,ज़रूरत
+give,देना
+take,लेना
+send,भेजना
+receive,प्राप्त करें
+call,पुकारना
+meet,मिलो
+start,शुरू
+stop,रुकना
+finish,खत्म करना
+try,कोशिश
+do,करना
+make,बनाना
+happy,खुश
+sad,उदास
+angry,गुस्सा
+tired,थका हुआ
+hungry,भूखा
+busy,व्यस्त
+free,मुक्त
+new,नया
+old,पुराना
+big,बड़ा
+small,छोटा
+long,लंबा
+short,छोटा
+hot,गर्म
+cold,ठंडा
+nice,अच्छा
+beautiful,सुंदर
+awesome,बहुत बढ़िया
+amazing,अद्भुत
+really,वास्तव में
+very,बहुत
+so,इसलिए
+too,बहुत
+then,तब
+sometimes,कभी-कभी
+often,अक्सर
+again,दोबारा
+fast,तेज़
+slow,धीमा
+early,जल्दी
+late,देर
+and,और
+but,लेकिन
+or,या
+because,क्योंकि
+if,अगर
+for,के लिए
+in,में
+on,पर
+at,पर
+to,को
+with,साथ
+from,से
+about,के बारे में
+of,का
+"i am fine, thank you.",मैं ठीक हूं आपका धन्यवाद।
+my name is...,मेरा नाम है...
+nice to meet you.,आपसे मिलकर अच्छा लगा।
+i'm sorry.,मुझे माफ़ करें।
+i am from...,मैं यहां से आया हूं...
+can you help me?,क्या आप मेरी मदद कर सकते हैं?
+i don't know.,मुझें नहीं पता।
+i don't understand.,मैं नहीं समझता।
+let's go.,चल दर।
+nothing much.,ज्यादा कुछ नहीं।
+it was good.,यह अच्छा था।
+i am thirsty.,मुझे प्यास लगी है।
+where is the restroom?,टॉयलेट कहां है?
+i need to rest.,मुझे आराम करने की ज़रूरत है।
+talk to you later.,बाद में बात करते हैं।
+on my way.,रास्ते में हूं।
+be right back.,सही हो।
+that's funny.,अजीब बात है।
+that's great!,यह बहुत अच्छा है!
+oh my god!,अरे बाप रे!
+congratulations!,बधाई हो!
+happy birthday!,जन्मदिन की शुभकामनाएँ!
+i miss you.,आपकी याद आ रही है।
+i love you.,मुझे तुमसे प्यार है।
+call me.,मुझे कॉल करो।
+text me.,मुझे विषय दें।
+what are your plans for today?,आज का क्या प्रोग्राम है?
+are you free tomorrow?,क्या आप कल खाली है?
+i am looking forward to it.,मुझे उसकी उम्मीद है।
+it's urgent.,यह बहुत आवश्यक है।
+don't worry.,चिंता मत करो।
+it's okay.,कोई बात नहीं।
+that's amazing!,वह आश्चर्यजनक है!
+i am so happy.,मैं बहुत खुश हूं।
+i am so sad.,मैं बहुत दुखी हूँ।
+i am excited.,मैं उत्साहित हूं।
+i am bored.,मुझे ऊबन हो चुकी है।
+i have to go.,मुजे जाना है।
+i will be there.,मैं वहां रहूंगा।
+i need help.,मुझे मदद की ज़रूरत है।
+wait a moment.,एक पल इंतज़ार करें।
+i am just kidding.,मैं सिर्फ मजाक कर रहा हूं।
+i am not sure.,मुझे यकीन नहीं है।
+i have no idea.,मुझे पता नहीं है।
+it's beautiful.,यह खूबसूरत है।
+it's delicious.,यह स्वादिष्ट है।
+i am feeling sick.,मैं बीमार महसूस कर रहा हूं।
+get well soon.,जल्द स्वस्थ हो जाओ।
+where are we going?,हम कहाँ जा रहे हैं?
+i'm lost.,मैं हार गया हूं।
+can you repeat that?,क्या आप उसे दोहरा सकते हैं?
+speak slowly.,धीरे बोलो।
+what is this?,यह क्या है?
+how much is this?,यह कितने का है?
+i'll take it.,मैं इसे ले जाऊँगा।
+do you have this in another color?,क्या आपके पास यह दूसरे रंग में है?
+where can i find...?,जहां मुझे मिल सकता है...?
+i'm just looking.,मैं बस देख रहा हूँ।
+have a great day!,आपका दिन अच्छा रहे!
+you too!,आप भी!
+good luck!,आपको कामयाबी मिले!
+lol,ज़ोर-ज़ोर से हंसना
+brb,बीआरबी
+omw,ओएमडब्ल्यू
+btw,बीटीडब्ल्यू
+imo,इमो
+ttyl,बाद में बात करता हूं
+idk,आंदोलन
+asap,यथाशीघ्र
+fomo,फोमो
+goat,बकरी
+lit,जगमगाता
+flex,मोड़ना
+salty,नमकीन
+cap,टोपी
+congrats,बधाई
+thanks,धन्यवाद
+sup,सुड़कना
+yo,यो
+dude,दोस्त
+bro,भाई
+sis,आई
+man,आदमी
+woman,महिला
+girl,लड़की
+boy,लड़का
+person,व्यक्ति
+people,लोग
+moment,पल
+way,रास्ता
+part,भाग
+group,समूह
+company,कंपनी
+question,सवाल
+fact,तथ्य
+story,कहानी
+book,किताब
+music,संगीत
+art,कला
+image,छवि
+picture,चित्र
+color,रंग
+air,वायु
+fire,आग
+earth,धरती
+sun,सूरज
+moon,चंद्रमा
+star,तारा
+sky,आकाश
+sea,समुद्र
+river,नदी
+mountain,पर्वत
+tree,पेड़
+flower,फूल
+animal,जानवर
+dog,कुत्ता
+cat,बिल्ली
+bird,चिड़िया
+fish,मछली
+house,घर
+room,कमरा
+door,दरवाजा
+window,खिड़की
+street,गली
+road,सड़क
+town,शहर
+village,गाँव
+university,विश्वविद्यालय
+career,आजीविका
+price,कीमत
+cost,लागत
+change,परिवर्तन
+news,समाचार
+information,जानकारी
+data,डेटा
+system,प्रणाली
+program,कार्यक्रम
+project,परियोजना
+team,टीम
+member,सदस्य
+leader,नेता
+boss,मालिक
+student,विद्यार्थी
+teacher,अध्यापक
+doctor,चिकित्सक
+lawyer,वकील
+engineer,अभियंता
+artist,कलाकार
+writer,लेखक
+player,खिलाड़ी
+fan,पंखा
+enemy,दुश्मन
+peace,शांति
+war,युद्ध
+hope,आशा
+fear,डर
+dream,सपना
+reality,वास्तविकता
+truth,सच
+lie,झूठ
+history,इतिहास
+future,भविष्य
+past,अतीत
+present,उपस्थित
+How,कैसे
+just,बस
+kidding,बस मजाक
+Prem,प्रेम
+am,हूँ
+are,हैं
+ll,ll
+athleisure,खेल-आराम
+the,वह
+dates,खजूर
+light,प्रकाश
+genres,विधाएँ
+that,वह
+all,सभी
+best,सर्वश्रेष्ठ
+earliest,सबसे शुरुआती
+animation,एनिमेशन
+tezuka,तेज़ुका
+directly,सीधे
+media,मीडिया
+internet,इंटरनेट
+response,जवाब
+hiii,हाय
+commercial,वाणिज्यिक
+japanese,जापानी
+through,के माध्यम से
+into,में
+feature,विशेषता
+have,होना
+any,कोई
+pen,पेन
+also,भी
+smile,मुस्कान
+was,था
+looking,देखना
+pokemon,पोकेमोन
+this,यह
+is,है
+sentence,वाक्य
+वेळ,समय
+a,ए
+toy,खिलौना
+Really looking gorgeous,बहुत ही खूबसूरत लग रही हो।
+What are you doing,आप क्या कर रहे हैं?
+"He'll","होगा"
+"nikhil","निखिल"
+"felt","महसूस किया"
+"off","बंद"
+"even","भी"
+"didn't","नहीं"
+"Saw","देखा"
+"Where are you","तुम कहाँ हो"
+"Break a leg","एक पैर तोड़"
+"He'll nikhil","वह निखिल होगा"
+"Gorgeous","सुंदर"
+"i love you","मैं तुमसे प्यार करता हूँ"
+"You are looking really nice today even if I didn't Saw you","तुम आज बहुत अच्छा लग रहे हैं, भले ही मैं तुम्हें नहीं देखा"

@@ -1,0 +1,20 @@
+[
+  {
+    "_id": "507f1f77bcf86cd799439021",
+    "participants": ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"],
+    "type": "private",
+    "lastMessageText": "Hey, how's it going?",
+    "lastMessageAt": "2024-01-15T10:30:00.000Z",
+    "lastMessageBy": "507f1f77bcf86cd799439011",
+    "createdAt": "2024-01-15T10:00:00.000Z"
+  },
+  {
+    "_id": "507f1f77bcf86cd799439022",
+    "participants": ["507f1f77bcf86cd799439012", "507f1f77bcf86cd799439013"],
+    "type": "private",
+    "lastMessageText": "That concert was lit!",
+    "lastMessageAt": "2024-01-15T14:20:00.000Z",
+    "lastMessageBy": "507f1f77bcf86cd799439013",
+    "createdAt": "2024-01-15T14:00:00.000Z"
+  }
+]

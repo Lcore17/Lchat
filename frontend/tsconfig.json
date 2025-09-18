@@ -1,0 +1,29 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    /* Modern JavaScript output */
+    "target": "esnext",
+    "module": "esnext",
+
+    /* React Native + DOM types */
+    "lib": ["dom", "esnext"],
+
+    /* Project setup */
+    "allowJs": true,
+    "jsx": "react-jsx",
+    "moduleResolution": "bundler",   // ✅ Required for Expo
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+
+    /* Path alias support */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
+}

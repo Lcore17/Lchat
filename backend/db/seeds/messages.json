@@ -1,0 +1,77 @@
+[
+  {
+    "_id": "507f1f77bcf86cd799439031",
+    "conversationId": "507f1f77bcf86cd799439021",
+    "senderId": "507f1f77bcf86cd799439011",
+    "textOriginal": "Hey, how's it going?",
+    "textPreprocessed": "Hey, how's it going?",
+    "timestamp": "2024-01-15T10:30:00.000Z",
+    "metadata": {
+      "preprocessingFlags": {
+        "hadShortforms": false,
+        "hadSlang": false,
+        "hadSarcasm": false
+      }
+    }
+  },
+  {
+    "_id": "507f1f77bcf86cd799439032",
+    "conversationId": "507f1f77bcf86cd799439021",
+    "senderId": "507f1f77bcf86cd799439012",
+    "textOriginal": "idk, just chilling tbh",
+    "textPreprocessed": "I don't know, just chilling to be honest",
+    "timestamp": "2024-01-15T10:31:00.000Z",
+    "metadata": {
+      "preprocessingFlags": {
+        "hadShortforms": true,
+        "hadSlang": false,
+        "hadSarcasm": false
+      }
+    }
+  },
+  {
+    "_id": "507f1f77bcf86cd799439033",
+    "conversationId": "507f1f77bcf86cd799439022",
+    "senderId": "507f1f77bcf86cd799439013",
+    "textOriginal": "That concert was lit!",
+    "textPreprocessed": "That concert was amazing!",
+    "timestamp": "2024-01-15T14:20:00.000Z",
+    "metadata": {
+      "preprocessingFlags": {
+        "hadShortforms": false,
+        "hadSlang": true,
+        "hadSarcasm": false
+      }
+    }
+  },
+  {
+    "_id": "507f1f77bcf86cd799439034",
+    "conversationId": "507f1f77bcf86cd799439022",
+    "senderId": "507f1f77bcf86cd799439012",
+    "textOriginal": "Yeah, it was absolutely fantastic... 🙄",
+    "textPreprocessed": "Yeah, it was absolutely fantastic... 🙄 [sarcasm]",
+    "timestamp": "2024-01-15T14:21:00.000Z",
+    "metadata": {
+      "preprocessingFlags": {
+        "hadShortforms": false,
+        "hadSlang": false,
+        "hadSarcasm": true
+      }
+    }
+  },
+  {
+    "_id": "507f1f77bcf86cd799439035",
+    "conversationId": "507f1f77bcf86cd799439021",
+    "senderId": "507f1f77bcf86cd799439011",
+    "textOriginal": "brb, gtg to work",
+    "textPreprocessed": "be right back, got to go to work",
+    "timestamp": "2024-01-15T10:32:00.000Z",
+    "metadata": {
+      "preprocessingFlags": {
+        "hadShortforms": true,
+        "hadSlang": false,
+        "hadSarcasm": false
+      }
+    }
+  }
+]

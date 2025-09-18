@@ -1,0 +1,17 @@
+[
+  { "key": "lit", "value": "amazing", "category": "positive" },
+  { "key": "fire", "value": "excellent", "category": "positive" },
+  { "key": "sick", "value": "awesome", "category": "positive" },
+  { "key": "dope", "value": "cool", "category": "positive" },
+  { "key": "savage", "value": "ruthless", "category": "neutral" },
+  { "key": "salty", "value": "bitter", "category": "negative" },
+  { "key": "flex", "value": "show off", "category": "neutral" },
+  { "key": "stan", "value": "admire", "category": "positive" },
+  { "key": "vibe", "value": "feeling", "category": "neutral" },
+  { "key": "lowkey", "value": "somewhat", "category": "neutral" },
+  { "key": "highkey", "value": "definitely", "category": "neutral" },
+  { "key": "periodt", "value": "period", "category": "neutral" },
+  { "key": "slaps", "value": "sounds great", "category": "positive" },
+  { "key": "cap", "value": "lie", "category": "negative" },
+  { "key": "bet", "value": "okay", "category": "neutral" }
+]

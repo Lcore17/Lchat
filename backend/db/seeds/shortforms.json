@@ -1,0 +1,17 @@
+[
+  { "key": "idk", "value": "I don't know", "category": "common" },
+  { "key": "brb", "value": "be right back", "category": "texting" },
+  { "key": "lol", "value": "laugh out loud", "category": "internet" },
+  { "key": "omg", "value": "oh my god", "category": "common" },
+  { "key": "tbh", "value": "to be honest", "category": "social" },
+  { "key": "imo", "value": "in my opinion", "category": "social" },
+  { "key": "imho", "value": "in my humble opinion", "category": "social" },
+  { "key": "btw", "value": "by the way", "category": "common" },
+  { "key": "fyi", "value": "for your information", "category": "common" },
+  { "key": "asap", "value": "as soon as possible", "category": "common" },
+  { "key": "ttyl", "value": "talk to you later", "category": "texting" },
+  { "key": "gtg", "value": "got to go", "category": "texting" },
+  { "key": "irl", "value": "in real life", "category": "internet" },
+  { "key": "dm", "value": "direct message", "category": "social" },
+  { "key": "afaik", "value": "as far as I know", "category": "internet" }
+]

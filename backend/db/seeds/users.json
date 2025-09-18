@@ -1,0 +1,47 @@
+[
+  {
+    "_id": "507f1f77bcf86cd799439011",
+    "email": "john@example.com",
+    "username": "john_doe",
+    "passwordHash": "password123",
+    "nickname": "John",
+    "profilePictureUrl": "/uploads/profiles/john.jpg",
+    "bio": "Love chatting with friends!",
+    "preferences": {
+      "theme": "dark",
+      "defaultTranslateLanguage": "en",
+      "autoTranslate": false
+    },
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "_id": "507f1f77bcf86cd799439012",
+    "email": "jane@example.com",
+    "username": "jane_smith",
+    "passwordHash": "password123",
+    "nickname": "Jane",
+    "profilePictureUrl": "/uploads/profiles/jane.jpg",
+    "bio": "Tech enthusiast and multilingual speaker",
+    "preferences": {
+      "theme": "light",
+      "defaultTranslateLanguage": "mr",
+      "autoTranslate": true
+    },
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "_id": "507f1f77bcf86cd799439013",
+    "email": "bob@example.com",
+    "username": "bob_wilson",
+    "passwordHash": "password123",
+    "nickname": "Bob",
+    "profilePictureUrl": "/uploads/profiles/bob.jpg",
+    "bio": "Always up for a good conversation",
+    "preferences": {
+      "theme": "system",
+      "defaultTranslateLanguage": "te",
+      "autoTranslate": false
+    },
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  }
+]
