@@ -82,6 +82,18 @@ router.get('/', auth, async (req, res) => {
       .map((d) => {
         const obj = d.toObject();
         obj.id = d._id;
+        // Stack reactions by emoji/type
+        const reactions = Array.isArray(obj.reactions) ? obj.reactions : [];
+        const stacked = {};
+        for (const r of reactions) {
+          const key = r.emoji || r.type;
+          if (!stacked[key]) stacked[key] = { count: 0, emoji: r.emoji, type: r.type };
+          stacked[key].count += 1;
+        }
+        obj.reactionsStacked = Object.values(stacked);
+        // Add analytics: viewers and viewCount
+        obj.viewers = Array.isArray(obj.viewers) ? obj.viewers : [];
+        obj.viewCount = typeof obj.viewCount === 'number' ? obj.viewCount : 0;
         return obj;
       });
     res.json({ stories });
@@ -147,6 +159,103 @@ router.delete('/:id', auth, async (req, res) => {
   } catch (err) {
     console.error('DELETE /stories/:id error:', err);
     res.status(500).json({ message: 'Failed to delete story' });
+  }
+});
+
+
+// POST /stories/:id/react - add or update a reaction
+router.post('/:id/react', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { type = 'like', emoji = null } = req.body;
+    const story = await Story.findById(id);
+    if (!story) return res.status(404).json({ message: 'Story not found' });
+    // Remove previous reaction by this user
+    story.reactions = story.reactions.filter(r => r.userId.toString() !== req.user._id.toString());
+    // Add new reaction
+    story.reactions.push({ userId: req.user._id, type, emoji });
+    await story.save();
+    res.json({ reactions: story.reactions });
+  } catch (err) {
+    console.error('POST /stories/:id/react error:', err);
+    res.status(500).json({ message: 'Failed to react to story' });
+  }
+});
+
+// POST /stories/:id/comment - add a comment
+router.post('/:id/comment', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { text } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ message: 'Comment text required' });
+    const story = await Story.findById(id);
+    if (!story) return res.status(404).json({ message: 'Story not found' });
+    story.comments.push({ userId: req.user._id, user: req.user.nickname || req.user.username, text, createdAt: Date.now() });
+    await story.save();
+    res.json({ comments: story.comments });
+  } catch (err) {
+    console.error('POST /stories/:id/comment error:', err);
+    res.status(500).json({ message: 'Failed to add comment' });
+  }
+});
+
+// PATCH /stories/:id - edit a story
+router.patch('/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content, imageUri } = req.body;
+    const story = await Story.findById(id);
+    if (!story) return res.status(404).json({ message: 'Story not found' });
+    if (story.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not allowed to edit this story' });
+    }
+    if (content !== undefined) story.content = content;
+    if (imageUri !== undefined) story.imageUri = imageUri;
+    story.edited = true;
+    story.lastEditedAt = Date.now();
+    await story.save();
+    res.json({ story });
+  } catch (err) {
+    console.error('PATCH /stories/:id error:', err);
+    res.status(500).json({ message: 'Failed to edit story' });
+  }
+});
+
+// DELETE /stories/:id - soft delete a story
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const story = await Story.findById(id);
+    if (!story) return res.status(404).json({ message: 'Story not found' });
+    if (story.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not allowed to delete this story' });
+    }
+    story.deleted = true;
+    story.deletedAt = Date.now();
+    await story.save();
+    res.json({ message: 'Story deleted (soft)' });
+  } catch (err) {
+    console.error('DELETE /stories/:id error:', err);
+    res.status(500).json({ message: 'Failed to delete story' });
+  }
+});
+
+// POST /stories/:id/view - record a view for analytics
+router.post('/:id/view', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const story = await Story.findById(id);
+    if (!story) return res.status(404).json({ message: 'Story not found' });
+    const userId = req.user._id.toString();
+    if (!story.viewers.map(v => v.toString()).includes(userId)) {
+      story.viewers.push(req.user._id);
+      story.viewCount += 1;
+      await story.save();
+    }
+    res.json({ viewCount: story.viewCount, viewers: story.viewers });
+  } catch (err) {
+    console.error('POST /stories/:id/view error:', err);
+    res.status(500).json({ message: 'Failed to record view' });
   }
 });
 

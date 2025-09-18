@@ -26,6 +26,17 @@ async function translateText(text, targetLanguage = 'en', sourceLanguage = 'en')
     sourceLanguage = options.sourceLanguage || 'en';
     enableCulturalAdaptation = !!options.culturalAdaptation;
   }
+
+  // --- Skip translation for file names ---
+  const fileExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.pdf', '.mp3', '.wav', '.m4a', '.mp4', '.avi', '.mov', '.webm'];
+  const fileKeywords = ['audio', 'image', 'attachment', 'file', 'document', 'photo', 'picture', 'video'];
+  const lowerText = text.trim().toLowerCase();
+  if (
+    fileExtensions.some(ext => lowerText.endsWith(ext)) ||
+    fileKeywords.some(keyword => lowerText.includes(keyword))
+  ) {
+    return { translatedText: text };
+  }
   if (!text || !text.trim() || sourceLanguage === targetLanguage) {
     return { translatedText: text };
   }
