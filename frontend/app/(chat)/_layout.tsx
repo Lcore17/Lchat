@@ -2,12 +2,23 @@
 
 import { Stack } from "expo-router";
 import { useTheme } from "../../context/ThemeContext"; // Note: Adjust path if needed
+import { Platform } from "react-native";
 
 export default function ChatLayout() {
   const { colors } = useTheme();
+  const isWeb = Platform.OS === "web";
 
   return (
-    <Stack>
+    <Stack
+      screenOptions={{
+        contentStyle: {
+          width: '100%',
+          maxWidth: isWeb ? 1100 : undefined,
+          alignSelf: isWeb ? 'center' : undefined,
+          backgroundColor: colors.background,
+        },
+      }}
+    >
       <Stack.Screen
         name="[conversationId]"
         options={{

@@ -1,0 +1,71 @@
+---
+config:
+  theme: base
+  flowchart:
+    htmlLabels: true
+    curve: linear
+    nodeSpacing: 70
+    rankSpacing: 90
+  themeVariables:
+    fontFamily: Georgia, 'Times New Roman', serif
+    fontSize: '18px'
+    primaryColor: '#EAF4FF'
+    primaryTextColor: '#102A43'
+    primaryBorderColor: '#2E5EA7'
+    lineColor: '#55657A'
+    secondaryColor: '#FFF1D9'
+    tertiaryColor: '#EAF8EE'
+    clusterBkg: '#F7FAFC'
+    clusterBorder: '#9BB2C9'
+    edgeLabelBackground: '#FFFFFF'
+---
+flowchart TB
+    S((Start)):::start
+    A[Open LChat App]:::process
+    B{User logged in?}:::decision
+    C[Register / Login]:::process
+    D[Validate credentials and issue JWT]:::process
+    E[Load Home Screen]:::process
+
+    F{Choose action}:::decision
+    G[Chat with friend]:::process
+    H[Translate text / image / audio]:::process
+    I[Manage stories]:::process
+    J[Update profile / friends]:::process
+
+    K[Select conversation and send message]:::process
+    L[Save message in MongoDB]:::process
+    M[Broadcast realtime update via Socket.IO]:::process
+    N[Store attachment / voice / image if any]:::process
+
+    O[Preprocess text or detect language]:::process
+    P[Run translation / OCR / speech-to-text]:::process
+    Q[Return translated output to user]:::process
+
+    R[Create or view story]:::process
+    T[React / comment / vote]:::process
+    U[Save story updates in MongoDB]:::process
+
+    V[Search friends / send requests / edit profile]:::process
+    W[Persist user and friend changes]:::process
+
+    X[Continue using the app]:::process
+    Z((End)):::endNode
+
+    S --> A --> B
+    B -- No --> C --> D --> E
+    B -- Yes --> E
+    E --> F
+
+    F -- Chat --> G --> K --> N --> L --> M --> X
+    F -- Translate --> H --> O --> P --> Q --> X
+    F -- Stories --> I --> R --> T --> U --> X
+    F -- Friends / Profile --> J --> V --> W --> X
+
+    X --> F
+    X --> Z
+
+    classDef start fill:#D9F2E6,stroke:#2F855A,stroke-width:1.8px,color:#1C4532;
+    classDef endNode fill:#FDECEF,stroke:#B83280,stroke-width:1.8px,color:#702459;
+    classDef process fill:#EAF4FF,stroke:#2E5EA7,stroke-width:1.6px,color:#102A43;
+    classDef decision fill:#FFF1D9,stroke:#B7791F,stroke-width:1.6px,color:#5F370E;

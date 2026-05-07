@@ -1,0 +1,84 @@
+---
+config:
+  theme: base
+  flowchart:
+    htmlLabels: true
+    curve: linear
+    nodeSpacing: 85
+    rankSpacing: 110
+  themeVariables:
+    fontFamily: Georgia, 'Times New Roman', serif
+    fontSize: '18px'
+    primaryColor: '#EAF4FF'
+    primaryTextColor: '#102A43'
+    primaryBorderColor: '#2E5EA7'
+    lineColor: '#4A5568'
+    secondaryColor: '#FFF1D9'
+    tertiaryColor: '#EAF8EE'
+    clusterBkg: '#F7FAFC'
+    clusterBorder: '#9BB2C9'
+    edgeLabelBackground: '#FFFFFF'
+---
+flowchart TB
+
+    U["External Entity<br/><b>User</b>"]
+    A["External Service<br/><b>AssemblyAI</b>"]
+
+    G(["0.0 API & Socket Gateway"])
+
+    subgraph S["LChat Backend System"]
+      direction TB
+      P1(["1.0 Authentication & Session"])
+      P2(["2.0 User & Friend Management"])
+      P3(["3.0 Messaging & Realtime"])
+      P4(["4.0 Translation Engine"])
+      P5(["5.0 OCR Service"])
+      P6(["6.0 Audio STT + Translation"])
+      P7(["7.0 Stories Management"])
+      P8(["8.0 Media Upload Service"])
+    end
+
+    subgraph D["Data Stores"]
+      direction TB
+      D1[("D1 MongoDB")]
+      D2[("D2 CSV Dictionary Store")]
+      D3[("D3 Uploads File Store")]
+    end
+
+    U -->|Login / request / upload / chat| G
+    G --> P1
+    P1 --> P2
+    P2 --> P3
+    P3 --> P4
+    P4 --> P5
+    P5 --> P6
+    P6 --> P7
+    P7 --> P8
+
+    P1 <--> D1
+    P2 <--> D1
+    P3 <--> D1
+    P4 <--> D2
+    P5 --> D3
+    P6 --> D3
+    P7 <--> D1
+    P8 <--> D3
+
+    P6 -->|STT / transcript polling| A
+    A -->|Transcript + language| P6
+
+    P3 -->|Realtime events| U
+    P2 -->|Friend updates| U
+
+    classDef process fill:#EAF4FF,stroke:#2E5EA7,stroke-width:1.6px,color:#102A43;
+    classDef gateway fill:#D9E9FF,stroke:#1F4D8F,stroke-width:1.8px,color:#0E2A4D;
+    classDef datastore fill:#FFF1D9,stroke:#B7791F,stroke-width:1.6px,color:#5F370E;
+    classDef entity fill:#EAF8EE,stroke:#2F855A,stroke-width:1.6px,color:#1C4532;
+    classDef ext fill:#FDECEF,stroke:#B83280,stroke-width:1.6px,color:#702459;
+
+    class G gateway;
+    class P1,P2,P3,P4,P5,P6,P7,P8 process;
+    class D1,D2,D3 datastore;
+    class D gateway;
+    class U entity;
+    class A ext;

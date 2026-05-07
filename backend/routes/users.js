@@ -55,13 +55,16 @@ router.get('/search', auth, async (req, res) => {
     const users = await User.searchUsers(query.trim(), req.user._id)
       .limit(parseInt(limit));
 
+    const io = req.app.get('io');
+    const connectedUsers = io?.connectedUsers;
+
     res.json({
       users: users.map(user => ({
         id: user._id,
         username: user.username,
         nickname: user.nickname,
         profilePictureUrl: user.profilePictureUrl,
-        isOnline: user.isOnline,
+        isOnline: Boolean(connectedUsers?.get(user._id.toString())),
         lastSeen: user.lastSeen
       }))
     });
@@ -190,8 +193,10 @@ router.get('/online-friends', auth, async (req, res) => {
   try {
     const FriendRequest = require('../db/models/FriendRequest');
     const friends = await FriendRequest.getFriendsList(req.user._id);
-    
-    const onlineFriends = friends.filter(friend => friend.isOnline);
+    const io = req.app.get('io');
+    const connectedUsers = io?.connectedUsers;
+
+    const onlineFriends = friends.filter(friend => Boolean(connectedUsers?.get(friend._id.toString())));
 
     res.json({
       onlineFriends: onlineFriends.map(friend => ({

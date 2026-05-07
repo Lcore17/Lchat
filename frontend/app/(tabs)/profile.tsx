@@ -8,6 +8,7 @@ import {
   ScrollView,
   Switch,
   ActivityIndicator, // Make sure ActivityIndicator is imported
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/context/AuthContext';
@@ -16,6 +17,7 @@ import { apiService } from '@/services/apiService';
 import { UserAvatar } from '@/components/UserAvatar';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { rms, rs } from '@/utils/responsive';
 
 // Define the shape of your User object from AuthContext
 // This helps TypeScript understand the structure
@@ -41,6 +43,7 @@ interface User {
 export default function ProfileScreen() {
   const { user, logout, updateProfile, setUser } = useAuth(); // Get setUser from context
   const { theme, setTheme, colors } = useTheme();
+  const isWeb = Platform.OS === 'web';
   const [uploading, setUploading] = useState(false);
 
   // Define supported languages, including Hindi, for the UI
@@ -161,7 +164,25 @@ export default function ProfileScreen() {
     }
   };
 
+  const performLogout = async () => {
+    try {
+      await logout();
+      router.replace('/(auth)/login');
+    } catch (err) {
+      console.error('Logout error:', err);
+      Alert.alert('Error', 'Failed to sign out. Please try again.');
+    }
+  };
+
   const handleLogout = () => {
+    if (Platform.OS === 'web') {
+      const shouldLogout = typeof window !== 'undefined' ? window.confirm('Are you sure you want to sign out?') : true;
+      if (shouldLogout) {
+        void performLogout();
+      }
+      return;
+    }
+
     Alert.alert(
       'Sign Out',
       'Are you sure you want to sign out?',
@@ -170,13 +191,8 @@ export default function ProfileScreen() {
         {
           text: 'Sign Out',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-              router.replace('/(auth)/login');
-            } catch (err) {
-              console.error('Logout error:', err);
-            }
+          onPress: () => {
+            void performLogout();
           },
         },
       ]
@@ -192,9 +208,33 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }}>
+    <ScrollView
+      style={{
+        flex: 1,
+        backgroundColor: colors.background,
+        width: '100%',
+        maxWidth: isWeb ? 1600 : undefined,
+        alignSelf: isWeb ? 'center' : undefined,
+      }}
+      contentContainerStyle={{
+        paddingTop: isWeb ? rs(16) : 0,
+        paddingBottom: isWeb ? rs(24) : 0,
+        paddingHorizontal: isWeb ? rs(16) : 0,
+      }}
+    >
+      <View style={[styles.webContentWrap, isWeb && { maxWidth: 1320, alignSelf: 'center' }]}>
       {/* Header Section */}
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: colors.surface, borderBottomColor: colors.border },
+          isWeb && {
+            borderRadius: rs(16),
+            borderWidth: 1,
+            borderColor: colors.border,
+          },
+        ]}
+      > 
         <View style={styles.avatarContainer}>
           <UserAvatar
             uri={user.profilePictureUrl}
@@ -217,14 +257,25 @@ export default function ProfileScreen() {
       </View>
 
       {/* Appearance Section */}
-      <View style={[styles.section, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Appearance</Text>
-        <View style={[styles.settingItem, { borderBottomColor: colors.border }]}>
+      <View
+        style={[
+          styles.section,
+          { backgroundColor: colors.surface },
+          isWeb && {
+            borderRadius: rs(16),
+            borderWidth: 1,
+            borderColor: colors.border,
+            overflow: 'hidden',
+          },
+        ]}
+      > 
+        <Text style={[styles.sectionTitle, isWeb && styles.sectionTitleWeb, { color: colors.textSecondary }]}>Appearance</Text>
+        <View style={[styles.settingItem, isWeb && styles.settingItemWeb, { borderBottomColor: colors.border }]}> 
           <View style={styles.settingIcon}>
             {theme === 'light' ? <Feather name="sun" size={20} color={colors.textSecondary} /> : <Feather name="moon" size={20} color={colors.textSecondary} />}
           </View>
           <View style={styles.settingContent}>
-            <Text style={[styles.settingTitle, { color: colors.text }]}>Theme</Text>
+            <Text style={[styles.settingTitle, isWeb && styles.settingTitleWeb, { color: colors.text }]}>Theme</Text>
             <View style={styles.themeOptions}>
               {(['light', 'dark'] as const).map((themeOption) => (
                 <TouchableOpacity
@@ -236,7 +287,7 @@ export default function ProfileScreen() {
                   ]}
                   onPress={() => handleThemeChange(themeOption)}
                 >
-                  <Text style={[ styles.themeButtonText, { color: colors.textSecondary }, theme === themeOption && styles.activeThemeButtonText, ]}>
+                  <Text style={[ styles.themeButtonText, isWeb && styles.themeButtonTextWeb, { color: colors.textSecondary }, theme === themeOption && styles.activeThemeButtonText, ]}>
                     {themeOption.charAt(0).toUpperCase() + themeOption.slice(1)}
                   </Text>
                 </TouchableOpacity>
@@ -247,13 +298,24 @@ export default function ProfileScreen() {
       </View>
 
       {/* Translation Section */}
-      <View style={[styles.section, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Translation</Text>
-        <View style={[styles.settingItem, { borderBottomWidth: 0 }]}>
+      <View
+        style={[
+          styles.section,
+          { backgroundColor: colors.surface },
+          isWeb && {
+            borderRadius: rs(16),
+            borderWidth: 1,
+            borderColor: colors.border,
+            overflow: 'hidden',
+          },
+        ]}
+      > 
+        <Text style={[styles.sectionTitle, isWeb && styles.sectionTitleWeb, { color: colors.textSecondary }]}>Translation</Text>
+        <View style={[styles.settingItem, isWeb && styles.settingItemWeb, { borderBottomWidth: 0 }]}>
           <Feather name="globe" size={20} color={colors.textSecondary} style={styles.settingIcon} />
           <View style={styles.settingContent}>
-            <Text style={[styles.settingTitle, { color: colors.text }]}>Default Language</Text>
-            <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>
+            <Text style={[styles.settingTitle, isWeb && styles.settingTitleWeb, { color: colors.text }]}>Default Language</Text>
+            <Text style={[styles.settingSubtitle, isWeb && styles.settingSubtitleWeb, { color: colors.textSecondary }]}> 
               Received messages will be translated to this language.
             </Text>
             <View style={styles.languageOptions}>
@@ -270,6 +332,7 @@ export default function ProfileScreen() {
                   <Text
                     style={[
                       styles.languageButtonText,
+                      isWeb && styles.languageButtonTextWeb,
                       { color: colors.text },
                       user.preferences.defaultTranslateLanguage === lang.code && [styles.activeLanguageButtonText, { color: colors.primary }],
                     ]}
@@ -284,30 +347,42 @@ export default function ProfileScreen() {
       </View>
 
       {/* Notifications Section */}
-      <View style={[styles.section, { backgroundColor: colors.surface }]}>
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Notifications</Text>
-        <View style={[styles.settingItem, { borderBottomColor: colors.border }]}>
+      <View
+        style={[
+          styles.section,
+          { backgroundColor: colors.surface },
+          isWeb && {
+            borderRadius: rs(16),
+            borderWidth: 1,
+            borderColor: colors.border,
+            overflow: 'hidden',
+          },
+        ]}
+      > 
+        <Text style={[styles.sectionTitle, isWeb && styles.sectionTitleWeb, { color: colors.textSecondary }]}>Notifications</Text>
+        <View style={[styles.settingItem, isWeb && styles.settingItemWeb, { borderBottomColor: colors.border }]}> 
           <Feather name="bell" size={20} color={colors.textSecondary} style={styles.settingIcon} />
           <View style={styles.settingContent}>
-            <Text style={[styles.settingTitle, { color: colors.text }]}>Messages</Text>
+            <Text style={[styles.settingTitle, isWeb && styles.settingTitleWeb, { color: colors.text }]}>Messages</Text>
           </View>
           <Switch value={user.preferences.notifications.messages} onValueChange={(value) => handleNotificationToggle('messages', value)} />
         </View>
-        <View style={[styles.settingItem, { borderBottomWidth: 0 }]}>
+        <View style={[styles.settingItem, isWeb && styles.settingItemWeb, { borderBottomWidth: 0 }]}> 
           <Feather name="user" size={20} color={colors.textSecondary} style={styles.settingIcon} />
           <View style={styles.settingContent}>
-            <Text style={[styles.settingTitle, { color: colors.text }]}>Friend Requests</Text>
+            <Text style={[styles.settingTitle, isWeb && styles.settingTitleWeb, { color: colors.text }]}>Friend Requests</Text>
           </View>
           <Switch value={user.preferences.notifications.friendRequests} onValueChange={(value) => handleNotificationToggle('friendRequests', value)} />
         </View>
       </View>
 
       {/* Logout Button */}
-      <View style={{ padding: 16 }}>
+      <View style={{ padding: isWeb ? rs(4) : rs(16), paddingTop: isWeb ? rs(20) : rs(16) }}>
         <TouchableOpacity style={[styles.logoutButton, { backgroundColor: colors.error }]} onPress={handleLogout}>
           <Feather name="log-out" size={20} color="white" />
           <Text style={styles.logoutButtonText}>Sign Out</Text>
         </TouchableOpacity>
+      </View>
       </View>
     </ScrollView>
   );
@@ -315,23 +390,27 @@ export default function ProfileScreen() {
 
 // Full stylesheet
 const styles = StyleSheet.create({
+  webContentWrap: {
+    width: '100%',
+    alignSelf: 'center',
+  },
   header: {
-    paddingTop: 48,
-    paddingBottom: 24,
+    paddingTop: rs(44),
+    paddingBottom: rs(22),
     alignItems: 'center',
     borderBottomWidth: 1,
   },
   avatarContainer: {
     position: 'relative',
-    marginBottom: 16,
+    marginBottom: rs(14),
   },
   cameraButton: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    borderRadius: 16,
-    width: 32,
-    height: 32,
+    borderRadius: rs(16),
+    width: rs(32),
+    height: rs(32),
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -340,63 +419,86 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   userName: {
-    fontSize: 24,
+    fontSize: rms(28),
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: rs(4),
   },
   userEmail: {
-    fontSize: 16,
+    fontSize: rms(18),
     marginBottom: 2,
   },
   userUsername: {
-    fontSize: 14,
+    fontSize: rms(16),
   },
   section: {
-    marginTop: 12,
+    marginTop: rs(12),
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: rms(14),
     fontWeight: '600',
-    marginHorizontal: 16,
-    marginBottom: 8,
+    marginHorizontal: rs(16),
+    marginBottom: rs(8),
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: rs(16),
+    paddingVertical: rs(12),
     borderBottomWidth: 1,
   },
+  sectionTitleWeb: {
+    marginTop: rs(6),
+    marginBottom: rs(10),
+    fontSize: rms(13),
+    letterSpacing: 0.8,
+  },
+  settingItemWeb: {
+    paddingHorizontal: rs(20),
+    paddingVertical: rs(14),
+  },
   settingIcon: {
-    marginRight: 16,
+    marginRight: rs(16),
   },
   settingContent: {
     flex: 1,
   },
   settingTitle: {
-    fontSize: 16,
+    fontSize: rms(18),
+  },
+  settingTitleWeb: {
+    fontSize: rms(16),
+    lineHeight: rms(22),
+    fontWeight: '600',
   },
   settingSubtitle: {
-    fontSize: 14,
+    fontSize: rms(16),
     marginTop: 2,
+  },
+  settingSubtitleWeb: {
+    fontSize: rms(14),
+    lineHeight: rms(20),
+    marginTop: rs(4),
   },
   themeOptions: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
+    gap: rs(8),
+    marginTop: rs(12),
   },
   themeButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: rs(12),
+    paddingVertical: rs(6),
+    borderRadius: rs(16),
     borderWidth: 1,
   },
   activeThemeButton: {},
   themeButtonText: {
-    fontSize: 12,
+    fontSize: rms(12),
     fontWeight: '500',
+  },
+  themeButtonTextWeb: {
+    fontSize: rms(13),
   },
   activeThemeButtonText: {
     color: 'white',
@@ -404,18 +506,22 @@ const styles = StyleSheet.create({
   languageOptions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 12,
+    gap: rs(8),
+    marginTop: rs(12),
   },
   languageButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
+    paddingHorizontal: rs(12),
+    paddingVertical: rs(8),
+    borderRadius: rs(16),
     borderWidth: 1,
   },
   activeLanguageButton: {},
   languageButtonText: {
-    fontSize: 14,
+    fontSize: rms(14),
+  },
+  languageButtonTextWeb: {
+    fontSize: rms(14),
+    fontWeight: '500',
   },
   activeLanguageButtonText: {
     fontWeight: '600',
@@ -424,13 +530,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    borderRadius: 8,
-    gap: 8,
+    padding: rs(16),
+    borderRadius: rs(8),
+    gap: rs(8),
   },
   logoutButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: rms(16),
     fontWeight: '600',
   },
 });

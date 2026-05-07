@@ -1,5 +1,6 @@
 // models/Conversation.js
 const mongoose = require('mongoose');
+const { encryptMessageText, decryptMessageText } = require('../../utils/messageCrypto');
 
 const conversationSchema = new mongoose.Schema({
   participants: [{
@@ -23,7 +24,9 @@ const conversationSchema = new mongoose.Schema({
   },
   lastMessageText: {
     type: String,
-    default: ''
+    default: '',
+    set: encryptMessageText,
+    get: decryptMessageText
   },
   lastMessageAt: {
     type: Date,
@@ -53,7 +56,9 @@ const conversationSchema = new mongoose.Schema({
     }
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { getters: true },
+  toObject: { getters: true }
 });
 
 // Index for efficient queries

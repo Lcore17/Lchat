@@ -140,6 +140,8 @@ router.post('/conversation', auth, async (req, res) => {
 
     // Get or create conversation
     const conversation = await Conversation.createOrGet(userId, friendId);
+    const io = req.app.get('io');
+    const connectedUsers = io?.connectedUsers;
 
     res.json({
       conversation: {
@@ -149,7 +151,7 @@ router.post('/conversation', auth, async (req, res) => {
           username: p.username,
           nickname: p.nickname,
           profilePictureUrl: p.profilePictureUrl,
-          isOnline: p.isOnline,
+          isOnline: Boolean(connectedUsers?.get(p._id.toString())),
           lastSeen: p.lastSeen
         })),
         lastMessageText: conversation.lastMessageText,
@@ -168,6 +170,8 @@ router.post('/conversation', auth, async (req, res) => {
 router.get('/conversations/list', auth, async (req, res) => {
   try {
     const conversations = await Conversation.getUserConversations(req.user._id);
+    const io = req.app.get('io');
+    const connectedUsers = io?.connectedUsers;
 
     const conversationList = conversations.map(conv => {
       const otherParticipant = conv.getOtherParticipant(req.user._id);
@@ -179,7 +183,7 @@ router.get('/conversations/list', auth, async (req, res) => {
           username: otherParticipant.username,
           nickname: otherParticipant.nickname,
           profilePictureUrl: otherParticipant.profilePictureUrl,
-          isOnline: otherParticipant.isOnline,
+          isOnline: Boolean(connectedUsers?.get(otherParticipant._id.toString())),
           lastSeen: otherParticipant.lastSeen
         } : null,
         lastMessageText: conv.lastMessageText,
@@ -266,7 +270,7 @@ router.delete('/:messageId', auth, async (req, res) => {
     const { messageId } = req.params;
     const userId = req.user._id;
 
-    const message = await Message.findById(messageId);
+    const message = await Message.findById(messageId).select('senderId isDeleted conversationId timestamp');
     if (!message) {
       return res.status(404).json({ message: 'Message not found' });
     }
@@ -276,7 +280,46 @@ router.delete('/:messageId', auth, async (req, res) => {
       return res.status(403).json({ message: 'You can only delete your own messages' });
     }
 
-    await message.softDelete();
+    if (!message.isDeleted) {
+      await Message.updateOne(
+        { _id: messageId, senderId: userId, isDeleted: false },
+        { $set: { isDeleted: true, deletedAt: new Date() } }
+      );
+    }
+
+    const conversationId = message.conversationId;
+    if (conversationId) {
+      const lastMessage = await Message.findOne({ conversationId, isDeleted: false })
+        .sort({ timestamp: -1 })
+        .select('textOriginal timestamp senderId');
+
+      await Conversation.updateOne(
+        { _id: conversationId },
+        {
+          $set: {
+            lastMessageText: lastMessage ? lastMessage.textOriginal : '',
+            lastMessageAt: lastMessage ? lastMessage.timestamp : message.timestamp,
+            lastMessageBy: lastMessage ? lastMessage.senderId : null,
+          }
+        }
+      );
+    }
+
+    const io = req.app.get('io');
+    const connectedUsers = io?.connectedUsers;
+    if (io && conversationId) {
+      const conversation = await Conversation.findById(conversationId).select('participants');
+      const participantIds = (conversation?.participants || []).map(p => p.toString());
+      participantIds.forEach(participantId => {
+        const socketId = connectedUsers?.get(participantId);
+        if (socketId) {
+          io.to(socketId).emit('message_deleted', {
+            messageId: messageId.toString(),
+            conversationId: conversationId.toString(),
+          });
+        }
+      });
+    }
 
     res.json({ message: 'Message deleted successfully' });
 
@@ -336,11 +379,13 @@ router.post('/:conversationId/attachment', auth, (req, res) => {
       await newMessage.save();
 
       // Update conversation last message
-      await Conversation.findByIdAndUpdate(conversationId, {
-        lastMessageText: isImage ? '[Image]' : `[File] ${originalname}`,
-        lastMessageAt: newMessage.timestamp,
-        lastMessageBy: userId,
-      });
+      const conversationToUpdate = await Conversation.findById(conversationId);
+      if (conversationToUpdate) {
+        conversationToUpdate.lastMessageText = isImage ? '[Image]' : `[File] ${originalname}`;
+        conversationToUpdate.lastMessageAt = newMessage.timestamp;
+        conversationToUpdate.lastMessageBy = userId;
+        await conversationToUpdate.save();
+      }
 
       const populated = await Message.findById(newMessage._id).populate('senderId', 'username nickname profilePictureUrl');
 
@@ -367,6 +412,22 @@ router.post('/:conversationId/attachment', auth, (req, res) => {
         metadata: populated.metadata,
         sentiment: populated.sentiment || 'neutral',
       };
+
+      // Real-time notify other conversation participants (same behavior as text messages)
+      const io = req.app.get('io');
+      const connectedUsers = io?.connectedUsers;
+      const senderIdString = userId.toString();
+      const participantIds = (conversation.participants || []).map(p => p.toString());
+
+      participantIds
+        .filter(participantId => participantId !== senderIdString)
+        .forEach(participantId => {
+          const socketId = connectedUsers?.get(participantId);
+          if (socketId) {
+            io.to(socketId).emit('newMessage', payload);
+            io.to(socketId).emit('message_received', payload);
+          }
+        });
 
       res.json({ message: payload });
     } catch (error) {

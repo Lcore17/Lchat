@@ -1,9 +1,23 @@
+import { Platform } from 'react-native';
+
+const resolveApiBaseUrl = () => {
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return `http://${window.location.hostname}:5000`;
+  }
+
+  return 'http://localhost:5000';
+};
+
 class ApiService {
   private baseURL: string;
   private authToken: string | null = null;
 
   constructor() {
-    this.baseURL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
+    this.baseURL = resolveApiBaseUrl();
   }
 
   setAuthToken(token: string | null) {

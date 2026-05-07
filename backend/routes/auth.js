@@ -6,31 +6,36 @@ const { validateRequest, registerSchema, loginSchema } = require('../middleware/
 
 const router = express.Router();
 
+const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 // Register user
 router.post('/register', validateRequest(registerSchema), async (req, res) => {
   try {
     const { email, username, password, nickname } = req.body;
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedUsername = username.trim();
+    const normalizedNickname = (nickname || normalizedUsername).trim();
 
     // Check if user already exists
     const existingUser = await User.findOne({
-      $or: [{ email }, { username }]
+      $or: [{ email: normalizedEmail }, { username: normalizedUsername }]
     });
 
     if (existingUser) {
-      if (existingUser.email === email) {
+      if (existingUser.email === normalizedEmail) {
         return res.status(400).json({ message: 'Email already registered' });
       }
-      if (existingUser.username === username) {
+      if (existingUser.username === normalizedUsername) {
         return res.status(400).json({ message: 'Username already taken' });
       }
     }
 
     // Create new user
     const user = new User({
-      email,
-      username,
+      email: normalizedEmail,
+      username: normalizedUsername,
       passwordHash: password, // Will be hashed by pre-save middleware
-      nickname: nickname || username
+      nickname: normalizedNickname
     });
 
     await user.save();
@@ -57,6 +62,17 @@ router.post('/register', validateRequest(registerSchema), async (req, res) => {
 
   } catch (error) {
     console.error('Registration error:', error);
+
+    if (error && error.code === 11000) {
+      if (error.keyPattern?.email) {
+        return res.status(400).json({ message: 'Email already registered' });
+      }
+      if (error.keyPattern?.username) {
+        return res.status(400).json({ message: 'Username already taken' });
+      }
+      return res.status(400).json({ message: 'Email or username already exists' });
+    }
+
     res.status(500).json({ message: 'Registration failed', error: error.message });
   }
 });
@@ -65,10 +81,17 @@ router.post('/register', validateRequest(registerSchema), async (req, res) => {
 router.post('/login', validateRequest(loginSchema), async (req, res) => {
   try {
     const { login, password } = req.body;
+    const normalizedLogin = String(login || '').trim();
+    const normalizedEmail = normalizedLogin.toLowerCase();
+    const usernameRegex = new RegExp(`^${escapeRegex(normalizedLogin)}$`, 'i');
+
+    if (!normalizedLogin) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
 
     // Find user by email or username
     const user = await User.findOne({
-      $or: [{ email: login }, { username: login }]
+      $or: [{ email: normalizedEmail }, { username: normalizedLogin }, { username: usernameRegex }]
     });
 
     if (!user) {

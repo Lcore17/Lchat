@@ -8,11 +8,14 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
+import { useSocket } from '@/context/SocketContext';
 import { apiService } from '@/services/apiService';
 import { UserAvatar } from '@/components/UserAvatar';
 import { Feather } from '@expo/vector-icons';
+import { rms, rs } from '@/utils/responsive';
 
 interface FriendRequest {
   id: string;
@@ -38,6 +41,7 @@ interface FriendRequest {
 }
 
 export default function RequestsScreen() {
+  const isWeb = Platform.OS === 'web';
   const [receivedRequests, setReceivedRequests] = useState<FriendRequest[]>([]);
   const [sentRequests, setSentRequests] = useState<FriendRequest[]>([]);
   const [activeTab, setActiveTab] = useState<'received' | 'sent'>('received');
@@ -65,7 +69,7 @@ export default function RequestsScreen() {
   }, []);
 
   // Listen for socket event to auto-refresh requests
-  const { socket } = require('@/context/SocketContext').useSocket();
+  const { socket } = useSocket();
   useEffect(() => {
     loadRequests();
     if (socket) {
@@ -139,69 +143,88 @@ export default function RequestsScreen() {
   const dynamicStyles = useMemo(
     () =>
       StyleSheet.create({
-        container: { flex: 1, backgroundColor: colors.background },
+        container: {
+          flex: 1,
+          backgroundColor: colors.background,
+          width: '100%',
+          maxWidth: isWeb ? 1600 : undefined,
+          alignSelf: isWeb ? 'center' : undefined,
+          paddingHorizontal: isWeb ? rs(12) : 0,
+          paddingTop: isWeb ? rs(16) : 0,
+        },
         header: {
           backgroundColor: colors.surface,
-          paddingTop: 48,
-          paddingHorizontal: 20,
+          paddingTop: isWeb ? rs(24) : rs(44),
+          paddingHorizontal: rs(18),
           paddingBottom: 0,
           borderBottomWidth: 1,
           borderBottomColor: colors.border,
+          borderRadius: isWeb ? rs(14) : 0,
+          borderWidth: isWeb ? 1 : 0,
         },
         headerTitle: {
-          fontSize: 28,
+          fontSize: rms(28),
           fontWeight: 'bold',
           color: colors.text,
-          marginBottom: 16,
+          marginBottom: rs(14),
         },
         tabContainer: { flexDirection: 'row' },
         tab: {
           flex: 1,
-          paddingVertical: 12,
+          paddingVertical: rs(12),
           alignItems: 'center',
           borderBottomWidth: 2,
           borderBottomColor: 'transparent',
         },
         activeTab: { borderBottomColor: colors.primary },
-        tabText: { fontSize: 16, fontWeight: '500', color: colors.textSecondary },
+        tabText: { fontSize: rms(16), fontWeight: '500', color: colors.textSecondary },
         activeTabText: { color: colors.primary },
         tabBadge: {
           position: 'absolute',
           top: 6,
-          right: 20,
+          right: rs(18),
           backgroundColor: colors.primary,
-          borderRadius: 10,
-          minWidth: 20,
-          height: 20,
+          borderRadius: rs(10),
+          minWidth: rs(20),
+          height: rs(20),
           alignItems: 'center',
           justifyContent: 'center',
         },
-        tabBadgeText: { color: 'white', fontSize: 12, fontWeight: '600' },
+        tabBadgeText: { color: 'white', fontSize: rms(12), fontWeight: '600' },
         emptyContainer: {
           flex: 1,
           justifyContent: 'center',
           alignItems: 'center',
-          paddingHorizontal: 32,
+          paddingHorizontal: rs(28),
         },
         emptyText: {
-          fontSize: 18,
+          fontSize: rms(18),
           color: colors.textSecondary,
           textAlign: 'center',
-          marginTop: 16,
+          marginTop: rs(14),
         },
         emptySubText: {
-          fontSize: 14,
+          fontSize: rms(14),
           color: colors.textSecondary,
           textAlign: 'center',
-          marginTop: 8,
+          marginTop: rs(8),
         },
         loadingContainer: {
           flex: 1,
           justifyContent: 'center',
           alignItems: 'center',
         },
+        requestsContainer: {
+          marginTop: isWeb ? rs(12) : 0,
+          borderRadius: isWeb ? rs(14) : 0,
+          borderWidth: isWeb ? 1 : 0,
+          borderColor: colors.border,
+          backgroundColor: isWeb ? colors.surface : colors.background,
+          overflow: 'hidden',
+          flex: 1,
+        },
       }),
-    [colors],
+    [colors, isWeb],
   );
 
   if (loading) {
@@ -220,7 +243,33 @@ export default function RequestsScreen() {
       <View style={dynamicStyles.header}>
         <Text style={dynamicStyles.headerTitle}>Friend Requests</Text>
         <View style={dynamicStyles.tabContainer}>
-          {/* Tabs... same as your code */}
+          <TouchableOpacity
+            style={[dynamicStyles.tab, activeTab === 'received' && dynamicStyles.activeTab]}
+            onPress={() => setActiveTab('received')}
+          >
+            <Text style={[dynamicStyles.tabText, activeTab === 'received' && dynamicStyles.activeTabText]}>
+              Received
+            </Text>
+            {receivedRequests.length > 0 && (
+              <View style={dynamicStyles.tabBadge}>
+                <Text style={dynamicStyles.tabBadgeText}>{receivedRequests.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[dynamicStyles.tab, activeTab === 'sent' && dynamicStyles.activeTab]}
+            onPress={() => setActiveTab('sent')}
+          >
+            <Text style={[dynamicStyles.tabText, activeTab === 'sent' && dynamicStyles.activeTabText]}>
+              Sent
+            </Text>
+            {sentRequests.length > 0 && (
+              <View style={dynamicStyles.tabBadge}>
+                <Text style={dynamicStyles.tabBadgeText}>{sentRequests.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -237,14 +286,17 @@ export default function RequestsScreen() {
           </Text>
         </View>
       ) : (
-        <FlatList
-          data={currentData}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} />
-          }
-        />
+        <View style={dynamicStyles.requestsContainer}>
+          <FlatList
+            data={currentData}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} />
+            }
+            contentContainerStyle={{ paddingBottom: isWeb ? rs(12) : 0 }}
+          />
+        </View>
       )}
     </View>
   );
@@ -308,16 +360,16 @@ export default function RequestsScreen() {
 }
 
 const styles = StyleSheet.create({
-  requestItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
-  requestInfo: { flex: 1, marginLeft: 12 },
+  requestItem: { flexDirection: 'row', alignItems: 'center', padding: rs(14), borderBottomWidth: 1 },
+  requestInfo: { flex: 1, marginLeft: rs(10) },
   requestHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  requesterName: { fontSize: 16, fontWeight: '600' },
-  requestTime: { fontSize: 12 },
-  requesterUsername: { fontSize: 14, marginTop: 2 },
-  requestMessage: { fontSize: 13, fontStyle: 'italic', marginTop: 4 },
-  actionButtons: { flexDirection: 'row', gap: 8 },
-  acceptButton: { padding: 8, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  rejectButton: { padding: 8, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  statusBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, marginTop: 4 },
-  statusText: { fontSize: 12, fontWeight: '500' },
+  requesterName: { fontSize: rms(16), fontWeight: '600' },
+  requestTime: { fontSize: rms(12) },
+  requesterUsername: { fontSize: rms(14), marginTop: 2 },
+  requestMessage: { fontSize: rms(13), fontStyle: 'italic', marginTop: rs(4) },
+  actionButtons: { flexDirection: 'row', gap: rs(8) },
+  acceptButton: { padding: rs(8), borderRadius: rs(20), alignItems: 'center', justifyContent: 'center' },
+  rejectButton: { padding: rs(8), borderRadius: rs(20), alignItems: 'center', justifyContent: 'center' },
+  statusBadge: { alignSelf: 'flex-start', paddingHorizontal: rs(8), paddingVertical: rs(2), borderRadius: rs(10), marginTop: rs(4) },
+  statusText: { fontSize: rms(12), fontWeight: '500' },
 });

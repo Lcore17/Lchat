@@ -17,6 +17,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "strict": true,
+    "ignoreDeprecations": "5.0",
 
     /* Path alias support */
     "baseUrl": ".",

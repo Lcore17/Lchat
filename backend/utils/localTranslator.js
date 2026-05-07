@@ -1,34 +1,129 @@
-// Local translation using @xenova/transformers
-const { pipeline } = require('@xenova/transformers');
-// Suppress ONNX Runtime warnings about unused initializers
-const originalStderrWrite = process.stderr.write;
-process.stderr.write = function (msg, ...args) {
-	if (typeof msg === 'string' && msg.includes('should be removed from the model')) {
-		return true; // Ignore these warnings
-	}
-	return originalStderrWrite.apply(process.stderr, [msg, ...args]);
-};
-let modelCache = {};
+const path = require('path');
+const { Worker } = require('worker_threads');
 
-// Map language codes to NLLB-200 codes
-const nllbLangMap = {
-	en: 'eng_Latn',
-	hi: 'hin_Deva',
-	mr: 'mar_Deva',
-	ta: 'tam_Taml',
-	te: 'tel_Telu',
-};
+const CHUNK_MAX_CHARS = 420;
+const CHUNK_TRANSLATION_TIMEOUT_MS = 25000;
 
-async function loadModel() {
-		if (!modelCache.translator) {
-			// Load NLLB-200 distilled model (best for these pairs)
-			// Use lazy async loading and keep promise in cache to avoid duplicate loads
-			if (!modelCache.translatorPromise) {
-				modelCache.translatorPromise = pipeline('translation', 'Xenova/nllb-200-distilled-600M');
-			}
-			modelCache.translator = await modelCache.translatorPromise;
+let worker = null;
+let requestCounter = 0;
+let pendingRequests = new Map();
+
+function createWorker() {
+	const workerPath = path.join(__dirname, 'localTranslateWorker.js');
+	const instance = new Worker(workerPath);
+
+	instance.on('message', (message) => {
+		const { id, translatedText, error } = message || {};
+		const pending = pendingRequests.get(id);
+		if (!pending) return;
+
+		pendingRequests.delete(id);
+		if (error) {
+			pending.reject(new Error(error));
+			return;
 		}
-		return modelCache.translator;
+
+		pending.resolve(translatedText);
+	});
+
+	instance.on('error', () => {
+		for (const [id, pending] of pendingRequests.entries()) {
+			pending.reject(new Error('Translation worker crashed'));
+			pendingRequests.delete(id);
+		}
+	});
+
+	instance.on('exit', (code) => {
+		worker = null;
+		if (code !== 0) {
+			for (const [id, pending] of pendingRequests.entries()) {
+				pending.reject(new Error('Translation worker exited unexpectedly'));
+				pendingRequests.delete(id);
+			}
+		}
+	});
+
+	return instance;
+}
+
+function getWorker() {
+	if (!worker) {
+		worker = createWorker();
+	}
+	return worker;
+}
+
+function splitTextIntoChunks(text, maxChars = CHUNK_MAX_CHARS) {
+	const input = String(text || '').trim();
+	if (!input) return [];
+	if (input.length <= maxChars) return [input];
+
+	const sentenceLike = input.match(/[^.!?\n]+[.!?\n]?/g) || [input];
+	const chunks = [];
+	let current = '';
+
+	for (const pieceRaw of sentenceLike) {
+		const piece = pieceRaw.trim();
+		if (!piece) continue;
+
+		if (piece.length > maxChars) {
+			if (current) {
+				chunks.push(current.trim());
+				current = '';
+			}
+
+			for (let i = 0; i < piece.length; i += maxChars) {
+				chunks.push(piece.slice(i, i + maxChars).trim());
+			}
+			continue;
+		}
+
+		const candidate = current ? `${current} ${piece}` : piece;
+		if (candidate.length > maxChars) {
+			chunks.push(current.trim());
+			current = piece;
+		} else {
+			current = candidate;
+		}
+	}
+
+	if (current.trim()) {
+		chunks.push(current.trim());
+	}
+
+	return chunks;
+}
+
+async function translateChunkWithTimeout(chunk, sourceLang, targetLang) {
+	const workerInstance = getWorker();
+	const id = ++requestCounter;
+
+	const translatePromise = new Promise((resolve, reject) => {
+		pendingRequests.set(id, { resolve, reject });
+		workerInstance.postMessage({ id, text: chunk, sourceLang, targetLang });
+	});
+
+	const timeoutPromise = new Promise((resolve) => {
+		setTimeout(async () => {
+			pendingRequests.delete(id);
+			resolve(chunk);
+
+			// Reset worker if it is hanging, so next requests can recover.
+			if (worker) {
+				try {
+					await worker.terminate();
+				} catch {
+					// Ignore terminate errors
+				}
+				worker = null;
+			}
+		}, CHUNK_TRANSLATION_TIMEOUT_MS);
+	});
+
+	return Promise.race([
+		translatePromise.catch(() => chunk),
+		timeoutPromise,
+	]);
 }
 
 /**
@@ -39,11 +134,19 @@ async function loadModel() {
  * @returns {Promise<string>}
  */
 async function localTranslate(text, sourceLang, targetLang) {
-	const translator = await loadModel();
-	const src = nllbLangMap[sourceLang] || 'eng_Latn';
-	const tgt = nllbLangMap[targetLang] || 'eng_Latn';
-	const result = await translator(text, { src_lang: src, tgt_lang: tgt });
-	return result[0]?.translation_text || text;
+	const chunks = splitTextIntoChunks(text);
+	if (chunks.length <= 1) {
+		const result = await translateChunkWithTimeout(text, sourceLang, targetLang);
+		return result || text;
+	}
+
+	const translatedChunks = [];
+	for (const chunk of chunks) {
+		const translated = await translateChunkWithTimeout(chunk, sourceLang, targetLang);
+		translatedChunks.push(String(translated || chunk));
+	}
+
+	return translatedChunks.join(' ').replace(/\s+/g, ' ').trim() || text;
 }
 
 module.exports = { localTranslate };

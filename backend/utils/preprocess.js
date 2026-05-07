@@ -8,6 +8,54 @@ let slangCache = null;
 let lastCacheUpdate = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+const EMOJI_WORD_MAP = {
+  '😂': ' laughing ',
+  '🤣': ' laughing ',
+  '😭': ' crying ',
+  '😍': ' love ',
+  '🥰': ' love ',
+  '😘': ' love ',
+  '😡': ' angry ',
+  '😠': ' angry ',
+  '😢': ' sad ',
+  '😊': ' happy ',
+  '😄': ' happy ',
+  '😁': ' happy ',
+  '👍': ' good ',
+  '👎': ' bad ',
+  '🙏': ' thanks ',
+  '🙌': ' celebration ',
+  '🔥': ' fire ',
+  '💯': ' perfect ',
+  '🎉': ' celebration ',
+  '❤️': ' love ',
+  '❤': ' love ',
+  '💔': ' heartbreak ',
+  '🙂': ' okay ',
+  '😉': ' playful ',
+  '😒': ' annoyed ',
+  '🙄': ' sarcastic ',
+  '🤔': ' thinking ',
+  '🤯': ' shocked ',
+  '😴': ' sleepy '
+};
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function normalizeInputText(text) {
+  const emojiRegex = new RegExp(Object.keys(EMOJI_WORD_MAP).map(escapeRegex).join('|'), 'gu');
+  return String(text || '')
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(emojiRegex, (emoji) => EMOJI_WORD_MAP[emoji] || ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 async function loadShortforms() {
   try {
     const shortforms = await Shortform.find({ isActive: true });
@@ -80,7 +128,7 @@ function expandShortforms(text, shortformsMap) {
 
   // Use word boundaries to ensure we only replace whole words
   Object.keys(shortformsMap).forEach(shortform => {
-    const regex = new RegExp(`\\b${shortform}\\b`, 'gi');
+    const regex = new RegExp(`\\b${escapeRegex(shortform)}\\b`, 'gi');
     if (regex.test(processedText)) {
       processedText = processedText.replace(regex, shortformsMap[shortform]);
       hadShortforms = true;
@@ -97,7 +145,7 @@ function replaceSlang(text, slangMap) {
 
   // Use word boundaries to ensure we only replace whole words
   Object.keys(slangMap).forEach(slangTerm => {
-    const regex = new RegExp(`\\b${slangTerm}\\b`, 'gi');
+    const regex = new RegExp(`\\b${escapeRegex(slangTerm)}\\b`, 'gi');
     if (regex.test(processedText)) {
       processedText = processedText.replace(regex, slangMap[slangTerm]);
       hadSlang = true;
@@ -112,7 +160,7 @@ async function preprocessText(text) {
   try {
     await refreshCache();
 
-    let processedText = text.trim();
+    let processedText = normalizeInputText(text);
     const flags = {
       hadShortforms: false,
       hadSlang: false,
@@ -169,7 +217,11 @@ async function preprocessText(text) {
 async function updateUsageStats(text, flags) {
   try {
     if (flags.hadShortforms) {
-      const words = text.toLowerCase().split(/\s+/);
+      const words = normalizeInputText(text)
+        .toLowerCase()
+        .split(/\s+/)
+        .map(word => word.replace(/^[^a-z0-9']+|[^a-z0-9']+$/gi, ''))
+        .filter(Boolean);
       const shortformKeys = Object.keys(shortformsCache);
       
       for (const word of words) {
@@ -183,7 +235,11 @@ async function updateUsageStats(text, flags) {
     }
 
     if (flags.hadSlang) {
-      const words = text.toLowerCase().split(/\s+/);
+      const words = normalizeInputText(text)
+        .toLowerCase()
+        .split(/\s+/)
+        .map(word => word.replace(/^[^a-z0-9']+|[^a-z0-9']+$/gi, ''))
+        .filter(Boolean);
       const slangKeys = Object.keys(slangCache);
       
       for (const word of words) {

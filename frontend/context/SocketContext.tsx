@@ -7,13 +7,25 @@ import React, {
 } from "react";
 
 import io, { Socket } from "socket.io-client";
+import { Platform } from "react-native";
 
 import { useAuth } from "./AuthContext"; // Your AuthContext import
 
 // Make sure this is set to your computer's local IP, not localhost.
 
-const SOCKET_URL =
-  process.env.EXPO_PUBLIC_SOCKET_URL || "http://192.168.0.35:5000"; // Replace with your IP
+const resolveSocketUrl = () => {
+  if (process.env.EXPO_PUBLIC_SOCKET_URL) {
+    return process.env.EXPO_PUBLIC_SOCKET_URL;
+  }
+
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return `http://${window.location.hostname}:5000`;
+  }
+
+  return "http://localhost:5000";
+};
+
+const SOCKET_URL = resolveSocketUrl();
 
 interface SocketContextType {
   socket: Socket | null;
@@ -38,8 +50,11 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
       setLastUserId(user.id);
       const newSocket = io(SOCKET_URL, {
         query: { userId: user.id },
-        transports: ["websocket"],
+        transports: ["websocket", "polling"],
         reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        timeout: 10000,
       });
       newSocket.on("connect", () => {
         console.log(`✅ Socket connected successfully for user: ${user.id}`);

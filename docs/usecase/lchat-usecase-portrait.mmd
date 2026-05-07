@@ -1,0 +1,74 @@
+---
+config:
+  theme: base
+  flowchart:
+    htmlLabels: true
+    curve: linear
+    nodeSpacing: 60
+    rankSpacing: 75
+  themeVariables:
+    fontFamily: Georgia, 'Times New Roman', serif
+    fontSize: '16px'
+    primaryColor: '#EAF4FF'
+    primaryTextColor: '#102A43'
+    primaryBorderColor: '#2E5EA7'
+    lineColor: '#55657A'
+    secondaryColor: '#FFF1D9'
+    tertiaryColor: '#EAF8EE'
+    clusterBkg: '#F7FAFC'
+    clusterBorder: '#9BB2C9'
+    edgeLabelBackground: '#FFFFFF'
+---
+flowchart TB
+    U["<div style='font-size:42px;line-height:1'>◉</div><div style='font-weight:700'>User</div><div style='font-size:12px'>Actor</div>"]:::actor
+
+    subgraph SYS["LChat System"]
+      direction TB
+      UC1(["Register / Login"])
+      UC2(["Manage Profile"])
+      UC3(["Search Friends / Send Requests"])
+      UC4(["Accept / Reject Friend Requests"])
+      UC5(["Chat / Send Messages"])
+      UC6(["Upload Attachments / Voice / Images"])
+      UC7(["Translate Text / Image / Audio"])
+      UC8(["Create / View / React to Stories"])
+      UC9(["View Notifications / Online Status"])
+      UC10(["Logout"])
+
+      UC1 --> UC2 --> UC3 --> UC4 --> UC5 --> UC6 --> UC7 --> UC8 --> UC9 --> UC10
+    end
+
+    A["<div style='font-size:24px;line-height:1'>◉</div><div style='font-weight:700'>AssemblyAI</div><div style='font-size:12px'>External service</div>"]:::service
+
+    U --> UC1
+    U --> UC2
+    U --> UC3
+    U --> UC4
+    U --> UC5
+    U --> UC6
+    U --> UC7
+    U --> UC8
+    U --> UC9
+    U --> UC10
+
+    UC7 --> A
+
+    linkStyle 0 stroke:#2F855A,stroke-width:1.4px;
+    linkStyle 1 stroke:#2F855A,stroke-width:1.4px;
+    linkStyle 2 stroke:#2F855A,stroke-width:1.4px;
+    linkStyle 3 stroke:#2F855A,stroke-width:1.4px;
+    linkStyle 4 stroke:#2F855A,stroke-width:1.4px;
+    linkStyle 5 stroke:#2F855A,stroke-width:1.4px;
+    linkStyle 6 stroke:#2F855A,stroke-width:1.4px;
+    linkStyle 7 stroke:#2F855A,stroke-width:1.4px;
+    linkStyle 8 stroke:#2F855A,stroke-width:1.4px;
+    linkStyle 9 stroke:#2F855A,stroke-width:1.4px;
+    linkStyle 10 stroke:#B83280,stroke-width:1.6px;
+
+    classDef actor fill:#EAF8EE,stroke:#2F855A,stroke-width:1.8px,color:#1C4532;
+    classDef service fill:#FDECEF,stroke:#B83280,stroke-width:1.8px,color:#702459;
+    classDef usecase fill:#FFF4D8,stroke:#B7791F,stroke-width:1.6px,color:#5F370E;
+
+    class U actor;
+    class A service;
+    class UC1,UC2,UC3,UC4,UC5,UC6,UC7,UC8,UC9,UC10 usecase;

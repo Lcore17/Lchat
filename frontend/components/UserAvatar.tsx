@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -11,6 +11,7 @@ interface UserAvatarProps {
 
 export function UserAvatar({ uri, name, size = 40, style }: UserAvatarProps) {
   const { colors } = useTheme();
+  const [imageFailed, setImageFailed] = useState(false);
 
   const getInitials = (name: string) => {
     if (!name) return '?';
@@ -42,18 +43,27 @@ export function UserAvatar({ uri, name, size = 40, style }: UserAvatarProps) {
     },
   });
 
-  if (uri) {
-    // Construct full URL if needed
-    const imageUri = uri.startsWith('http') 
-      ? uri 
-      : `${process.env.EXPO_PUBLIC_API_URL}${uri}`;
+  const imageUri = useMemo(() => {
+    if (!uri) return null;
+    if (uri.startsWith('http')) return uri;
+
+    const baseUrl = process.env.EXPO_PUBLIC_API_URL
+      || (typeof window !== 'undefined' ? `http://${window.location.hostname}:5000` : 'http://localhost:5000');
+
+    return `${baseUrl}${uri}`;
+  }, [uri]);
+
+  if (imageUri && !imageFailed) {
 
     return (
       <View style={[dynamicStyles.container, style]}>
         <Image
           source={{ uri: imageUri }}
           style={dynamicStyles.image}
-          onError={() => console.log('Avatar image failed to load:', imageUri)}
+          onError={() => {
+            console.log('Avatar image failed to load:', imageUri);
+            setImageFailed(true);
+          }}
         />
       </View>
     );

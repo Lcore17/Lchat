@@ -1,6 +1,11 @@
 // This line MUST be the very first line to run.
 require('dotenv').config();
 
+if (!process.env.MESSAGE_ENCRYPTION_KEY || process.env.MESSAGE_ENCRYPTION_KEY.trim().length === 0) {
+  console.error('❌ MESSAGE_ENCRYPTION_KEY is missing. Set it in backend/.env before starting the server.');
+  process.exit(1);
+}
+
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -27,13 +32,45 @@ const app = express();
 const server = http.createServer(app);
 
 // CORS configuration
-const corsOrigins = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : ['http://localhost:19006'];
+const corsOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+  : ['http://localhost:19006'];
+
+const allowedOrigins = new Set(corsOrigins);
+const localhostOriginRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+const lanOriginRegex = /^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/;
+
+const isOriginAllowed = (origin) => {
+  if (!origin) {
+    return true;
+  }
+
+  return (
+    allowedOrigins.has(origin) ||
+    localhostOriginRegex.test(origin) ||
+    lanOriginRegex.test(origin)
+  );
+};
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (isOriginAllowed(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+};
+
 const io = socketIo(server, {
   cors: {
-    origin: corsOrigins,
+    ...corsOptions,
     methods: ["GET", "POST"],
-    credentials: true,
   },
+  pingTimeout: 120000,
+  pingInterval: 25000,
 });
 // Expose io and connectedUsers on app for route access
 const connectedUsers = new Map();
@@ -42,7 +79,7 @@ io.connectedUsers = connectedUsers;
 
 // Middleware setup
 app.use(helmet());
-app.use(cors({ origin: corsOrigins, credentials: true }));
+app.use(cors(corsOptions));
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
@@ -83,11 +120,12 @@ io.on('connection', (socket) => {
     socket.userId = userId;
     console.log(`✅ User ${userId} successfully authenticated on socket ${socket.id}`);
     connectedUsers.set(userId.toString(), socket.id);
+    const now = new Date();
     User.findByIdAndUpdate(userId, {
       isOnline: true,
-      lastSeen: new Date(),
+      lastSeen: now,
     }).catch(console.error);
-    socket.broadcast.emit('user_online', { userId, isOnline: true });
+    socket.broadcast.emit('user_online', { userId, isOnline: true, lastSeen: now.toISOString() });
   }
 
   socket.on('joinConversation', (conversationId) => {
@@ -100,24 +138,48 @@ io.on('connection', (socket) => {
     console.log(`👋 User ${socket.userId} left conversation ${conversationId}`);
   });
 
+  socket.on('typing', (data) => {
+    const { conversationId, isTyping, userName } = data || {};
+    if (!socket.userId || !conversationId) {
+      return;
+    }
+
+    socket.broadcast.to(conversationId).emit('typing', {
+      conversationId,
+      userId: socket.userId,
+      userName: userName || 'Someone',
+      isTyping: Boolean(isTyping),
+    });
+  });
+
   // --- ✅ SIMPLIFIED MESSAGE HANDLER (NO AUTOMATIC TRANSLATION) ---
   socket.on('sendMessage', async (data) => {
     try {
       const senderId = socket.userId;
       const { conversationId, text } = data;
+      const normalizedText = String(text || '').trim();
+      const MAX_MESSAGE_CHARS = 20000;
 
       if (!senderId) {
         return console.error("sendMessage Error: User not authenticated on this socket.");
       }
-      if (!conversationId || !text) {
+      if (!conversationId || !normalizedText) {
         return console.error("sendMessage Error: Missing conversationId or text.");
+      }
+      if (normalizedText.length > MAX_MESSAGE_CHARS) {
+        socket.emit('sendMessageError', {
+          conversationId,
+          text: normalizedText,
+          message: `Message is too long. Limit is ${MAX_MESSAGE_CHARS} characters.`,
+        });
+        return;
       }
 
       // Improved sentiment analysis: split into sentences, analyze each, aggregate
       const Sentiment = require('sentiment');
       const sentiment = new Sentiment();
       // Algorithmic approach: split into sentences, score each, bias toward neutral for formal/business language
-      const sentences = text.match(/[^.!?]+[.!?]?/g) || [text];
+      const sentences = normalizedText.match(/[^.!?]+[.!?]?/g) || [normalizedText];
       let totalScore = 0;
       let sentenceCount = 0;
       let nonZeroSentences = 0;
@@ -142,18 +204,23 @@ io.on('connection', (socket) => {
       const newMessage = new Message({
         conversationId,
         senderId,
-        textOriginal: text,
+        textOriginal: normalizedText,
         timestamp: new Date(),
         sentiment: sentimentLabel
       });
       await newMessage.save();
 
       // 2. Update the conversation's last message
-      await Conversation.findByIdAndUpdate(conversationId, {
-        lastMessageText: text,
-        lastMessageAt: newMessage.timestamp,
-        lastMessageBy: senderId,
-      });
+      const conversationToUpdate = await Conversation.findById(conversationId);
+      if (conversationToUpdate) {
+        const previewText = normalizedText.length > 280
+          ? `${normalizedText.slice(0, 279)}…`
+          : normalizedText;
+        conversationToUpdate.lastMessageText = previewText;
+        conversationToUpdate.lastMessageAt = newMessage.timestamp;
+        conversationToUpdate.lastMessageBy = senderId;
+        await conversationToUpdate.save();
+      }
 
       // 3. Populate sender info and broadcast the new message object
       const messageForBroadcast = await Message.findById(newMessage._id).populate('senderId', 'nickname profilePictureUrl');
@@ -163,19 +230,26 @@ io.on('connection', (socket) => {
 
     } catch (error) {
       console.error('❌ FATAL ERROR in sendMessage handler:', error);
+      socket.emit('sendMessageError', {
+        conversationId: data?.conversationId,
+        text: data?.text,
+        message: error?.message || 'Failed to send message',
+      });
     }
   });
 
   socket.on('disconnect', async () => {
     if (socket.userId) {
       try {
+        const now = new Date();
         await User.findByIdAndUpdate(socket.userId, {
           isOnline: false,
-          lastSeen: new Date(),
+          lastSeen: now,
         });
         socket.broadcast.emit('user_online', {
           userId: socket.userId,
           isOnline: false,
+          lastSeen: now.toISOString(),
         });
         connectedUsers.delete(socket.userId.toString());
         console.log(`👋 User ${socket.userId} disconnected`);

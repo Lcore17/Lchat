@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useEffect, useContext } from 'react';
+import React, { useState, useCallback, useEffect, useContext, useRef } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { View, Text, TextInput, StyleSheet, FlatList, TouchableOpacity, KeyboardAvoidingView, Platform, SafeAreaView, ActivityIndicator, Alert, Image, Linking, ScrollView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, FlatList, TouchableOpacity, KeyboardAvoidingView, Platform, SafeAreaView, ActivityIndicator, Alert, Image, Linking, ScrollView, Keyboard } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import * as SecureStore from 'expo-secure-store';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,8 +12,10 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { useSocket } from '@/context/SocketContext';
 import { apiService } from '@/services/apiService';
+import { UserAvatar } from '@/components/UserAvatar';
 import VoiceRecorder from '@/components/VoiceRecorder';
 import { Audio } from 'expo-av';
+import { rms, rs } from '@/utils/responsive';
 
 // --- Interfaces ---
 interface PollOption {
@@ -43,6 +46,114 @@ interface IMessage {
   poll?: PollData;
 }
 
+interface ChatPeer {
+  id: string;
+  name: string;
+  username?: string;
+  profilePictureUrl?: string | null;
+  isOnline?: boolean;
+  lastSeen?: string;
+}
+
+const SUMMARY_MAX_MESSAGES = 6;
+const SUMMARY_CONTEXT_WINDOW = 2;
+const SUMMARY_MIN_CHARS = 160;
+const SUMMARY_MIN_SENTENCES = 2;
+const SUMMARY_MAX_SENTENCES = 3;
+
+const translationMemoryCache: Record<string, string> = {};
+const ocrTranslationMemoryCache: Record<string, string> = {};
+
+const getMessageTextForSummary = (msg: IMessage, ocrTextMap: { [id: string]: string | null }) => {
+  if (msg.messageType === 'image' && ocrTextMap[msg._id]) {
+    return ocrTextMap[msg._id] || '';
+  }
+
+  return msg.text || '';
+};
+
+const shortenSummaryText = (text: string, maxLength = 160) => {
+  const compact = (text || '').replace(/\s+/g, ' ').trim();
+  if (compact.length <= maxLength) return compact;
+
+  const sentences = compact.match(/[^.!?]+[.!?]?/g);
+  if (sentences && sentences.length > 0) {
+    let combined = '';
+    for (const sentence of sentences) {
+      const next = sentence.trim();
+      if (!next) continue;
+
+      const candidate = combined ? `${combined} ${next}` : next;
+      if (candidate.length <= maxLength) {
+        combined = candidate;
+        continue;
+      }
+
+      // Keep at least one sentence when the first one is itself very long.
+      if (!combined) {
+        combined = next;
+      }
+      break;
+    }
+
+    if (combined) {
+      if (combined.length <= maxLength) return combined;
+      return `${combined.slice(0, maxLength - 1).trimEnd()}…`;
+    }
+  }
+
+  return `${compact.slice(0, maxLength - 1).trimEnd()}…`;
+};
+
+const dedupeMessagesById = (items: IMessage[]) => {
+  const seen = new Set<string>();
+  return items.filter(item => {
+    if (seen.has(item._id)) return false;
+    seen.add(item._id);
+    return true;
+  });
+};
+
+const isLikelyMongoObjectId = (value: string) => /^[a-f\d]{24}$/i.test(String(value || ''));
+
+const extractSummaryWindow = (orderedMessages: IMessage[], selectedIds: string[]) => {
+  if (orderedMessages.length === 0) return [] as IMessage[];
+
+  const selectedIndexes = orderedMessages
+    .map((message, index) => (selectedIds.includes(message._id) ? index : -1))
+    .filter(index => index >= 0);
+
+  if (selectedIndexes.length === 0) {
+    return orderedMessages.slice(Math.max(0, orderedMessages.length - SUMMARY_MAX_MESSAGES));
+  }
+
+  const contiguousGroups: Array<{ start: number; end: number }> = [];
+  const sortedIndexes = [...selectedIndexes].sort((a, b) => a - b);
+  let start = sortedIndexes[0];
+  let end = sortedIndexes[0];
+
+  for (let i = 1; i < sortedIndexes.length; i += 1) {
+    const current = sortedIndexes[i];
+    if (current === end + 1) {
+      end = current;
+    } else {
+      contiguousGroups.push({ start, end });
+      start = current;
+      end = current;
+    }
+  }
+  contiguousGroups.push({ start, end });
+
+  const expandedMessages = contiguousGroups.flatMap(group => {
+    const windowStart = Math.max(0, group.start - SUMMARY_CONTEXT_WINDOW);
+    const windowEnd = Math.min(orderedMessages.length - 1, group.end + SUMMARY_CONTEXT_WINDOW);
+    return orderedMessages.slice(windowStart, windowEnd + 1);
+  });
+
+  const deduped = dedupeMessagesById(expandedMessages);
+  return deduped.slice(Math.max(0, deduped.length - SUMMARY_MAX_MESSAGES));
+};
+
 const formatMessage = (msg: any): IMessage => {
   const senderInfo = msg.sender || msg.senderId;
   const senderId = senderInfo?._id || senderInfo?.id;
@@ -63,13 +174,97 @@ const formatMessage = (msg: any): IMessage => {
 
 export default function RealChatScreen() {
   const insets = useSafeAreaInsets();
+  const isWeb = Platform.OS === 'web';
+  const webChatWidth = 1100;
+  const translationInFlightRef = useRef<Set<string>>(new Set());
+  const [translationCacheHydrated, setTranslationCacheHydrated] = useState(false);
+
+  const getTranslationCacheKey = (messageId: string, language: string) =>
+    `translation:${messageId}:${language}`;
+
+  const getMemoryCacheKey = (messageId: string, language: string) =>
+    `${language}:${messageId}`;
+
+  const readCachedTranslation = async (messageId: string, language: string) => {
+    const memoryKey = getMemoryCacheKey(messageId, language);
+    if (translationMemoryCache[memoryKey]) {
+      return translationMemoryCache[memoryKey];
+    }
+
+    try {
+      const cached = await SecureStore.getItemAsync(getTranslationCacheKey(messageId, language));
+      if (cached) {
+        translationMemoryCache[memoryKey] = cached;
+      }
+      return cached;
+    } catch {
+      return null;
+    }
+  };
+
+  const writeCachedTranslation = async (messageId: string, language: string, translatedText: string) => {
+    const memoryKey = getMemoryCacheKey(messageId, language);
+    translationMemoryCache[memoryKey] = translatedText;
+
+    try {
+      await SecureStore.setItemAsync(getTranslationCacheKey(messageId, language), translatedText);
+    } catch {
+      // Ignore cache write failures silently
+    }
+  };
+
+  const getInFlightKey = (messageId: string, language: string) => `${messageId}:${language}`;
+  const getOcrTranslationCacheKey = (messageId: string, language: string) =>
+    `ocr-translation:${messageId}:${language}`;
+
+  const getOcrMemoryCacheKey = (messageId: string, language: string) =>
+    `${language}:${messageId}`;
+
+  const readCachedOcrTranslation = async (messageId: string, language: string) => {
+    const memoryKey = getOcrMemoryCacheKey(messageId, language);
+    if (ocrTranslationMemoryCache[memoryKey]) {
+      return ocrTranslationMemoryCache[memoryKey];
+    }
+
+    try {
+      const cached = await SecureStore.getItemAsync(getOcrTranslationCacheKey(messageId, language));
+      if (cached) {
+        ocrTranslationMemoryCache[memoryKey] = cached;
+      }
+      return cached;
+    } catch {
+      return null;
+    }
+  };
+
+  const writeCachedOcrTranslation = async (messageId: string, language: string, translatedText: string) => {
+    const memoryKey = getOcrMemoryCacheKey(messageId, language);
+    ocrTranslationMemoryCache[memoryKey] = translatedText;
+
+    try {
+      await SecureStore.setItemAsync(getOcrTranslationCacheKey(messageId, language), translatedText);
+    } catch {
+      // Ignore cache write failures silently
+    }
+  };
+
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isOtherTyping, setIsOtherTyping] = useState(false);
+  const [summaryVisible, setSummaryVisible] = useState(false);
+  const [summaryTitle, setSummaryTitle] = useState('Summary');
+  const [summaryText, setSummaryText] = useState('');
+  const localTypingRef = useRef(false);
+  const stopTypingTimeoutRef = useRef<any>(null);
+  const otherTypingResetTimeoutRef = useRef<any>(null);
+  const [chatPeer, setChatPeer] = useState<ChatPeer | null>(null);
 
   // Core summarization for any arbitrary text block
   const summarizeTextCore = (text: string): string => {
     const clean = (text || '').trim();
     if (!clean) return '';
-    let sentencesRaw = clean.match(/[^.!?]+[.!?]?/g);
-    let sentences: string[] = sentencesRaw ? Array.from(sentencesRaw).map(s => s.trim()).filter(s => s.length > 0) : [clean];
+    const normalized = clean.replace(/\s+/g, ' ');
+    let sentencesRaw = normalized.match(/[^.!?]+[.!?]?/g);
+    let sentences: string[] = sentencesRaw ? Array.from(sentencesRaw).map(s => s.trim()).filter(s => s.length > 0) : [normalized];
     const seen = new Set<string>();
     sentences = sentences.filter(s => {
       const key = s.toLowerCase();
@@ -77,13 +272,28 @@ export default function RealChatScreen() {
       seen.add(key);
       return true;
     });
-    const stopwords = new Set(['the','is','and','a','an','to','of','in','on','for','with','at','by','from','it','this','that','as','are','was','were','be','but','or','if','so','not','do','does','did','has','have','had','can','will','just','about','we','you','i','he','she','they','them','my','your','our','their','me','him','her','us']);
+    const stopwords = new Set(['the','is','and','a','an','to','of','in','on','for','with','at','by','from','it','this','that','as','are','was','were','be','but','or','if','so','not','do','does','did','has','have','had','can','will','just','about','we','you','i','he','she','they','them','my','your','our','their','me','him','her','us','very','really','actually','also','too','then','than']);
     const wordCounts: Record<string, number> = {};
     sentences.forEach(s => {
       s.toLowerCase().replace(/[^a-z0-9 ]/gi, '').split(/\s+/).forEach(w => {
         if (w.length > 2 && !stopwords.has(w)) wordCounts[w] = (wordCounts[w] || 0) + 1;
       });
     });
+
+    if (sentences.length === 1) {
+      const compact = sentences[0].replace(/\s+/g, ' ').trim();
+      return compact ? `Summary: ${compact}` : '';
+    }
+
+    if (clean.length <= SUMMARY_MIN_CHARS) {
+      const shortSummary = sentences
+        .slice(0, Math.min(SUMMARY_MIN_SENTENCES, sentences.length))
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      return shortSummary ? `Summary: ${shortSummary}` : '';
+    }
+
     const sentenceScores = sentences.map(s => {
       let score = 0;
       s.toLowerCase().replace(/[^a-z0-9 ]/gi, '').split(/\s+/).forEach(w => {
@@ -92,38 +302,70 @@ export default function RealChatScreen() {
       score += Math.max(0, 5 - sentences.indexOf(s));
       return score;
     });
-    const topIndexes = sentenceScores
+    const rankedIndexes = sentenceScores
       .map((score, idx) => ({ score, idx }))
       .sort((a, b) => b.score - a.score)
-      .slice(0, Math.min(2, sentences.length))
       .map(obj => obj.idx);
-    const summarySentences = topIndexes.sort((a, b) => a - b).map(idx => sentences[idx]);
+
+    const selected = new Set<number>([0]);
+    if (sentences.length > 2) {
+      selected.add(sentences.length - 1);
+    }
+
+    for (const idx of rankedIndexes) {
+      if (selected.size >= Math.min(SUMMARY_MAX_SENTENCES, sentences.length)) break;
+      selected.add(idx);
+    }
+
+    const selectedIndexes = Array.from(selected)
+      .sort((a, b) => a - b)
+      .slice(0, Math.max(SUMMARY_MIN_SENTENCES, Math.min(SUMMARY_MAX_SENTENCES, sentences.length)));
+
+    const summarySentences = selectedIndexes.map(idx => sentences[idx]);
     const summary = summarySentences.join(' ');
-    const keywords = Object.entries(wordCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 2)
-      .map(([w]) => w);
-    return (keywords.length ? `Main topics: ${keywords.join(', ')}.` : '') + (summary ? `\n${summary}` : '');
+    return summary ? `Summary: ${summary}` : '';
   };
 
   // Comprehensive summarization across selected messages (now includes OCR text for images)
   function summarizeMessagesFull(selectedMsgs: IMessage[]): string {
     if (selectedMsgs.length === 0) return '';
-    const combined = selectedMsgs.map(m => {
-      // Prefer OCR text if this is an image with extracted text
-      // Note: ocrTextMap defined below; this closure will capture the latest value
-      const ocrText = ocrTextMap[m._id];
-      if (m.messageType === 'image' && ocrText) return ocrText;
-      return m.text;
-    }).join(' ');
-    return summarizeTextCore(combined);
+    const chronologicalMessages = [...messages].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const orderedSelected = [...selectedMsgs].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const summaryWindow = extractSummaryWindow(chronologicalMessages, orderedSelected.map(msg => msg._id));
+
+    const textBlocks = summaryWindow
+      .map(message => shortenSummaryText(getMessageTextForSummary(message, ocrTextMap), 220))
+      .filter(Boolean);
+
+    if (textBlocks.length === 0) return '';
+
+    if (textBlocks.length <= 2) {
+      return `Summary: ${textBlocks.join(' ')}`;
+    }
+
+    const synthesisSource = textBlocks.join(' ');
+
+    return summarizeTextCore(synthesisSource);
   }
 
   // Summarize selected messages (comprehensive)
+  const showSummaryResult = (title: string, text: string) => {
+    const finalText = text || 'No summary available';
+
+    if (Platform.OS === 'web') {
+      setSummaryTitle(title);
+      setSummaryText(finalText);
+      setSummaryVisible(true);
+      return;
+    }
+
+    Alert.alert(title, finalText);
+  };
+
   const handleSummarize = () => {
     const selectedMsgs = messages.filter(m => selectedIds.includes(m._id));
     const summary = summarizeMessagesFull(selectedMsgs);
-    Alert.alert('Summary', summary || 'No summary available');
+    showSummaryResult('Summary', summary);
   };
   // Selection state for summarization
   const [selectMode, setSelectMode] = useState(false);
@@ -152,9 +394,9 @@ export default function RealChatScreen() {
     const translatedText = translations[selectedMessage._id];
     return (
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Message Options</Text>
-          <TouchableOpacity style={styles.modalButton} onPress={async () => {
+        <View style={[styles.modalContent, { backgroundColor: colors.card }]}> 
+          <Text style={[styles.modalTitle, { color: colors.text }]}>Message Options</Text>
+          <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.surface }]} onPress={async () => {
             if (translatedText) {
               await Clipboard.setStringAsync(translatedText);
               Alert.alert('Copied', 'Translated text copied!');
@@ -164,19 +406,19 @@ export default function RealChatScreen() {
             }
             setOptionsVisible(false);
           }}>
-            <Text style={styles.modalButtonText}>Copy</Text>
+            <Text style={[styles.modalButtonText, { color: colors.text }]}>Copy</Text>
           </TouchableOpacity>
           {isMyMessage && (
-            <TouchableOpacity style={styles.modalButton} onPress={() => {
+            <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.surface }]} onPress={() => {
               setEditMessageId(selectedMessage._id);
               setEditText(selectedMessage.text);
               setOptionsVisible(false);
             }}>
-              <Text style={styles.modalButtonText}>Edit</Text>
+              <Text style={[styles.modalButtonText, { color: colors.text }]}>Edit</Text>
             </TouchableOpacity>
           )}
           {isMyMessage && (
-            <TouchableOpacity style={styles.modalButton} onPress={async () => {
+            <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.surface }]} onPress={async () => {
               try {
                 await apiService.delete(`/messages/${selectedMessage._id}`);
                 setMessages(prev => prev.filter(m => m._id !== selectedMessage._id));
@@ -190,8 +432,8 @@ export default function RealChatScreen() {
               <Text style={[styles.modalButtonText, { color: colors.error }]}>Delete</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={styles.modalButton} onPress={() => setOptionsVisible(false)}>
-            <Text style={styles.modalButtonText}>Cancel</Text>
+          <TouchableOpacity style={[styles.modalButton, { backgroundColor: colors.surface }]} onPress={() => setOptionsVisible(false)}>
+            <Text style={[styles.modalButtonText, { color: colors.text }]}>Cancel</Text>
           </TouchableOpacity>
         </View>
         <TouchableOpacity style={styles.modalBackdrop} onPress={() => setOptionsVisible(false)} />
@@ -225,10 +467,87 @@ export default function RealChatScreen() {
   // Get the user's preferred language from the global AuthContext
   const targetLanguage = currentUser?.preferences.defaultTranslateLanguage || 'en';
 
+  useEffect(() => {
+    setTranslations({});
+    translationInFlightRef.current.clear();
+    setTranslationCacheHydrated(false);
+    setOcrTranslationMap({});
+    setShowOcrMap({});
+  }, [conversationId, targetLanguage]);
+
   const inputBackgroundColor = isDark ? '#2b2d2f' : '#F0F0F0';
   const borderColor = isDark ? '#4B5563' : '#D1D5DB';
   const placeholderColor = isDark ? '#9BA1A6' : '#687076';
   const iconColor = isDark ? '#9BA1A6' : '#687076';
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates?.height || 0);
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    const fetchChatPeer = async () => {
+      if (!conversationId || !currentUser?.id) return;
+
+      try {
+        const response = await apiService.get('/messages/conversations/list');
+        const conversations = response?.conversations || [];
+        const matched = conversations.find((c: any) => String(c.id) === String(conversationId));
+        const participant = matched?.participant;
+
+        if (participant) {
+          setChatPeer({
+            id: participant.id,
+            name: participant.nickname || participant.username || params.name || 'Chat',
+            username: participant.username,
+            profilePictureUrl: participant.profilePictureUrl || null,
+            isOnline: participant.isOnline,
+            lastSeen: participant.lastSeen,
+          });
+          return;
+        }
+      } catch (error) {
+        console.error('Failed to fetch conversation participant:', error);
+      }
+
+      setChatPeer(prev => prev || {
+        id: '',
+        name: params.name || 'Chat',
+        profilePictureUrl: null,
+        isOnline: false,
+      });
+    };
+
+    fetchChatPeer();
+  }, [conversationId, currentUser?.id, params.name]);
+
+  const formatLastSeenHeader = (value?: string) => {
+    if (!value) return 'offline';
+    const now = Date.now();
+    const seen = new Date(value).getTime();
+    const diffMins = Math.max(0, Math.floor((now - seen) / (1000 * 60)));
+    if (diffMins < 1) return 'last seen just now';
+    if (diffMins < 60) return `last seen ${diffMins}m ago`;
+    if (diffMins < 1440) return `last seen ${Math.floor(diffMins / 60)}h ago`;
+    return `last seen ${Math.floor(diffMins / 1440)}d ago`;
+  };
+
+  const getHeaderSubtitle = () => {
+    if (isOtherTyping) return 'typing...';
+    if (chatPeer?.isOnline) return 'online';
+    return formatLastSeenHeader(chatPeer?.lastSeen);
+  };
 
   // --- Data Fetching ---
   useEffect(() => {
@@ -250,19 +569,70 @@ export default function RealChatScreen() {
   
   // --- ✅ NEW: Effect to fetch translations when messages load or language changes ---
   useEffect(() => {
+    const hydrateTranslationCache = async () => {
+      if (!targetLanguage || messages.length === 0 || !currentUser?.id) {
+        setTranslationCacheHydrated(true);
+        return;
+      }
+
+      const hydrated: { [messageId: string]: string } = {};
+      const incomingMessages = messages.filter(msg => msg.user._id !== currentUser.id);
+
+      for (const message of incomingMessages) {
+        const cached = await readCachedTranslation(message._id, targetLanguage);
+        if (cached) {
+          hydrated[message._id] = cached;
+        }
+      }
+
+      if (Object.keys(hydrated).length > 0) {
+        setTranslations(prev => ({ ...prev, ...hydrated }));
+      }
+
+      setTranslationCacheHydrated(true);
+    };
+
+    hydrateTranslationCache();
+  }, [messages, targetLanguage, currentUser?.id]);
+
+  useEffect(() => {
     const translateAllVisibleMessages = async () => {
       // Only run if we have messages and the target language is set (including 'en')
-      if (targetLanguage && messages.length > 0) {
-        const messagesToTranslate = messages.filter(
-          msg => msg.user._id !== currentUser?.id && !translations[msg._id]
+      if (targetLanguage && messages.length > 0 && translationCacheHydrated) {
+        const candidateMessages = messages.filter(
+          msg =>
+            msg.user._id !== currentUser?.id &&
+            !translations[msg._id] &&
+            !translationInFlightRef.current.has(getInFlightKey(msg._id, targetLanguage))
         );
+
+        if (candidateMessages.length === 0) return;
+
+        const cachedTranslations: { [messageId: string]: string } = {};
+        const messagesToTranslate: IMessage[] = [];
+
+        for (const message of candidateMessages) {
+          const cached = await readCachedTranslation(message._id, targetLanguage);
+          if (cached) {
+            cachedTranslations[message._id] = cached;
+          } else {
+            messagesToTranslate.push(message);
+          }
+        }
+
+        if (Object.keys(cachedTranslations).length > 0) {
+          setTranslations(prev => ({ ...prev, ...cachedTranslations }));
+        }
 
         if (messagesToTranslate.length === 0) return;
 
         console.log(`Translating ${messagesToTranslate.length} visible messages to ${targetLanguage}...`);
 
-        const translationPromises = messagesToTranslate.map(message => 
-            apiService.post('/translate', {
+        const translationPromises = messagesToTranslate.map(message => {
+            const inFlightKey = getInFlightKey(message._id, targetLanguage);
+            translationInFlightRef.current.add(inFlightKey);
+
+            return apiService.post('/translate', {
               text: message.text,
               targetLanguage: targetLanguage,
             }).then(response => ({
@@ -271,17 +641,20 @@ export default function RealChatScreen() {
             })).catch(error => {
               console.error(`Failed to translate message ${message._id}:`, error);
               return null;
-            })
-          );
+            }).finally(() => {
+              translationInFlightRef.current.delete(inFlightKey);
+            });
+          });
 
         const results = await Promise.all(translationPromises);
 
         const newTranslations: { [messageId: string]: string } = {};
-        results.forEach(result => {
+        for (const result of results) {
           if (result) {
             newTranslations[result.messageId] = result.translatedText;
+            await writeCachedTranslation(result.messageId, targetLanguage, result.translatedText);
           }
-        });
+        }
 
         if (Object.keys(newTranslations).length > 0) {
           setTranslations(prev => ({ ...prev, ...newTranslations }));
@@ -289,12 +662,55 @@ export default function RealChatScreen() {
       }
     };
     translateAllVisibleMessages();
-  }, [targetLanguage, messages, currentUser?.id]);
+  }, [targetLanguage, messages, currentUser?.id, translations, translationCacheHydrated]);
+
+  useEffect(() => {
+    const hydrateOcrTranslationCache = async () => {
+      if (!targetLanguage || messages.length === 0 || !currentUser?.id) return;
+
+      const hydrated: { [id: string]: string } = {};
+      const showMapUpdate: { [id: string]: boolean } = {};
+
+      const candidateImages = messages.filter(
+        msg => msg.messageType === 'image' && msg.user._id !== currentUser.id
+      );
+
+      for (const message of candidateImages) {
+        const cached = await readCachedOcrTranslation(message._id, targetLanguage);
+        if (cached) {
+          hydrated[message._id] = cached;
+          showMapUpdate[message._id] = true;
+        }
+      }
+
+      if (Object.keys(hydrated).length > 0) {
+        setOcrTranslationMap(prev => ({ ...prev, ...hydrated }));
+      }
+
+      if (Object.keys(showMapUpdate).length > 0) {
+        setShowOcrMap(prev => ({ ...prev, ...showMapUpdate }));
+      }
+    };
+
+    hydrateOcrTranslationCache();
+  }, [messages, targetLanguage, currentUser?.id]);
 
 
   // --- Socket Logic ---
   useEffect(() => {
     if (!socket || !conversationId) return;
+
+    socket.emit('joinConversation', conversationId);
+
+    const refreshConversation = async () => {
+      try {
+        const response = await apiService.get(`/messages/${conversationId}`);
+        const formattedMessages = response.messages.map(formatMessage).reverse();
+        setMessages(formattedMessages);
+      } catch (error) {
+        console.error('Failed to refresh conversation:', error);
+      }
+    };
 
     const handleNewMessage = (newMessageData: any) => {
       if (newMessageData.conversationId !== conversationId) return;
@@ -304,25 +720,178 @@ export default function RealChatScreen() {
 
       // If the new message is from someone else and translation is set, translate it
       if (targetLanguage && formattedMsg.user._id !== currentUser?.id) {
-        apiService.post('/translate', { text: formattedMsg.text, targetLanguage })
-          .then(response => {
-            setTranslations(prev => ({ ...prev, [formattedMsg._id]: response.translated }));
+        const inFlightKey = getInFlightKey(formattedMsg._id, targetLanguage);
+        if (translationInFlightRef.current.has(inFlightKey)) return;
+
+        readCachedTranslation(formattedMsg._id, targetLanguage)
+          .then(cached => {
+            if (cached) {
+              setTranslations(prev => ({ ...prev, [formattedMsg._id]: cached }));
+              return null;
+            }
+
+            translationInFlightRef.current.add(inFlightKey);
+            return apiService.post('/translate', { text: formattedMsg.text, targetLanguage });
           })
-          .catch(error => console.error('Real-time translation failed:', error));
+          .then(async (response) => {
+            if (!response) return;
+            const translated = response.translated;
+            setTranslations(prev => ({ ...prev, [formattedMsg._id]: translated }));
+            await writeCachedTranslation(formattedMsg._id, targetLanguage, translated);
+          })
+          .catch(error => console.error('Real-time translation failed:', error))
+          .finally(() => {
+            translationInFlightRef.current.delete(inFlightKey);
+          });
+      }
+
+      refreshConversation();
+    };
+
+    const handleMessageDeleted = (deletedData: { messageId?: string; conversationId?: string }) => {
+      if (!deletedData || deletedData.conversationId !== conversationId || !deletedData.messageId) return;
+      const messageId = deletedData.messageId;
+
+      setMessages(previousMessages => previousMessages.filter(message => message._id !== messageId));
+      setTranslations(previous => {
+        if (!previous[messageId]) return previous;
+        const next = { ...previous };
+        delete next[messageId];
+        return next;
+      });
+    };
+
+    const handleSendMessageError = (errorData: { conversationId?: string; text?: string; message?: string }) => {
+      if (!errorData || errorData.conversationId !== conversationId) return;
+
+      if (errorData.text && currentUser?.id) {
+        setMessages(previousMessages => {
+          const firstOptimisticIndex = previousMessages.findIndex(
+            message =>
+              message.user._id === currentUser.id &&
+              message.text === errorData.text &&
+              !isLikelyMongoObjectId(message._id)
+          );
+
+          if (firstOptimisticIndex < 0) return previousMessages;
+
+          return previousMessages.filter((_, index) => index !== firstOptimisticIndex);
+        });
+      }
+
+      Alert.alert('Message failed', errorData.message || 'Could not send message');
+    };
+
+    const handleTyping = (typingData: any) => {
+      if (!typingData || typingData.conversationId !== conversationId) return;
+      if (typingData.userId === currentUser?.id) return;
+
+      setIsOtherTyping(Boolean(typingData.isTyping));
+
+      if (otherTypingResetTimeoutRef.current) {
+        clearTimeout(otherTypingResetTimeoutRef.current);
+      }
+
+      if (typingData.isTyping) {
+        otherTypingResetTimeoutRef.current = setTimeout(() => {
+          setIsOtherTyping(false);
+        }, 1800);
       }
     };
 
+    const handleUserPresence = (statusData: { userId: string; isOnline: boolean; lastSeen?: string }) => {
+      if (!chatPeer?.id || String(statusData.userId) !== String(chatPeer.id)) return;
+      setChatPeer(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          isOnline: statusData.isOnline,
+          lastSeen: statusData.lastSeen || (statusData.isOnline ? new Date().toISOString() : prev.lastSeen),
+        };
+      });
+    };
+
     socket.on('newMessage', handleNewMessage);
+    socket.on('message_received', handleNewMessage);
+    socket.on('message_deleted', handleMessageDeleted);
+    socket.on('sendMessageError', handleSendMessageError);
+    socket.on('typing', handleTyping);
+    socket.on('user_online', handleUserPresence);
     
     return () => {
+        socket.emit('leaveConversation', conversationId);
         socket.off('newMessage', handleNewMessage);
+        socket.off('message_received', handleNewMessage);
+      socket.off('message_deleted', handleMessageDeleted);
+        socket.off('sendMessageError', handleSendMessageError);
+        socket.off('typing', handleTyping);
+        socket.off('user_online', handleUserPresence);
+        if (otherTypingResetTimeoutRef.current) {
+          clearTimeout(otherTypingResetTimeoutRef.current);
+        }
     }
-  }, [socket, conversationId, targetLanguage, currentUser?.id]);
+  }, [socket, conversationId, targetLanguage, currentUser?.id, chatPeer?.id]);
+
+  const handleInputChange = (text: string) => {
+    setInputText(text);
+
+    if (!socket || !conversationId || !currentUser) return;
+
+    const hasText = text.trim().length > 0;
+
+    if (hasText && !localTypingRef.current) {
+      localTypingRef.current = true;
+      socket.emit('typing', {
+        conversationId,
+        isTyping: true,
+        userName: currentUser.nickname || currentUser.username,
+      });
+    }
+
+    if (!hasText && localTypingRef.current) {
+      localTypingRef.current = false;
+      socket.emit('typing', {
+        conversationId,
+        isTyping: false,
+        userName: currentUser.nickname || currentUser.username,
+      });
+    }
+
+    if (stopTypingTimeoutRef.current) {
+      clearTimeout(stopTypingTimeoutRef.current);
+    }
+
+    if (hasText) {
+      stopTypingTimeoutRef.current = setTimeout(() => {
+        if (localTypingRef.current) {
+          localTypingRef.current = false;
+          socket.emit('typing', {
+            conversationId,
+            isTyping: false,
+            userName: currentUser.nickname || currentUser.username,
+          });
+        }
+      }, 1200);
+    }
+  };
 
 
   // handleSend logic is unchanged
   const handleSend = () => {
     if (inputText.trim().length === 0 || !socket || !currentUser) return;
+
+    if (localTypingRef.current) {
+      localTypingRef.current = false;
+      socket.emit('typing', {
+        conversationId,
+        isTyping: false,
+        userName: currentUser.nickname || currentUser.username,
+      });
+    }
+
+    if (stopTypingTimeoutRef.current) {
+      clearTimeout(stopTypingTimeoutRef.current);
+    }
 
     const optimisticMessage: IMessage = {
       _id: Math.random().toString(),
@@ -533,6 +1102,7 @@ export default function RealChatScreen() {
       try {
         const response = await apiService.post('/translate', { text: ocrText, targetLanguage });
         setOcrTranslationMap(prev => ({ ...prev, [item._id]: response.translated }));
+        await writeCachedOcrTranslation(item._id, targetLanguage, response.translated);
       } catch (e) {
         const msg = typeof e === 'object' && e !== null && 'message' in e ? (e as any).message : String(e);
         Alert.alert('Translation failed', msg || 'Could not translate text');
@@ -611,6 +1181,7 @@ export default function RealChatScreen() {
               ? colors.primary + '80'
               : isMyMessage ? colors.primary : inputBackgroundColor,
             alignSelf: isMyMessage ? 'flex-end' : 'flex-start',
+            maxWidth: isWeb ? '70%' : '80%',
             borderWidth: selectMode && selectedIds.includes(item._id) ? 2 : 0,
             borderColor: selectMode && selectedIds.includes(item._id) ? colors.primary : 'transparent',
           } ]}>
@@ -627,27 +1198,33 @@ export default function RealChatScreen() {
                     <TouchableOpacity onPress={() => item.fileUrl && Linking.openURL(apiService['baseURL'] + item.fileUrl)}>
                       <Image source={{ uri: apiService['baseURL'] + item.fileUrl! }} style={styles.imagePreview} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.summarizeButton, { marginTop: 6 }]} onPress={handleExtractOcr} disabled={ocrLoading}>
-                      {ocrLoading ? <ActivityIndicator size={16} color={colors.primary} /> : <Ionicons name="text" size={18} color={colors.primary} />}
-                      <Text style={[styles.summarizeButtonText, { color: colors.primary, marginLeft: 6 }]}>Extract</Text>
-                    </TouchableOpacity>
-                    {showOcr && (
+                    {!isMyMessage && (
+                      <TouchableOpacity style={[styles.summarizeButton, { marginTop: 6 }]} onPress={handleExtractOcr} disabled={ocrLoading}>
+                        {ocrLoading ? <ActivityIndicator size={16} color={colors.primary} /> : <Ionicons name="text" size={18} color={colors.primary} />}
+                        <Text style={[styles.summarizeButtonText, { color: colors.primary, marginLeft: 6 }]}>Extract</Text>
+                      </TouchableOpacity>
+                    )}
+                    {!isMyMessage && showOcr && (
                       <View style={{ marginTop: 8, backgroundColor: isMyMessage ? colors.primary : inputBackgroundColor, borderRadius: 8, padding: 8 }}>
-                        <Text style={{ fontWeight: 'bold', marginBottom: 2, color: isMyMessage ? '#FFFFFF' : colors.text }}>Extracted Text:</Text>
-                        <Text style={{ fontSize: 14, marginBottom: 4, color: isMyMessage ? '#FFFFFF' : colors.text }}>{ocrText}</Text>
-                        <TouchableOpacity style={styles.summarizeButton} onPress={handleTranslateOcr} disabled={ocrTranslating}>
-                          {ocrTranslating ? <ActivityIndicator size={16} color={colors.primary} /> : <Ionicons name="language" size={18} color={colors.primary} />}
-                          <Text style={[styles.summarizeButtonText, { color: colors.primary, marginLeft: 6 }]}>Translate</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.summarizeButton, { marginTop: 6 }]} onPress={() => {
-                          const summary = summarizeTextCore(ocrText || '');
-                          Alert.alert('OCR Summary', summary || 'No summary available');
-                        }}>
-                          <Ionicons name="bulb" size={18} color={colors.primary} />
-                          <Text style={[styles.summarizeButtonText, { color: colors.primary, marginLeft: 6 }]}>Summarize</Text>
-                        </TouchableOpacity>
+                        {!ocrTranslation && (
+                          <>
+                            <Text style={{ fontWeight: 'bold', marginBottom: 2, color: isMyMessage ? '#FFFFFF' : colors.text }}>Extracted Text:</Text>
+                            <Text style={{ fontSize: 14, marginBottom: 4, color: isMyMessage ? '#FFFFFF' : colors.text }}>{ocrText}</Text>
+                            <TouchableOpacity style={styles.summarizeButton} onPress={handleTranslateOcr} disabled={ocrTranslating}>
+                              {ocrTranslating ? <ActivityIndicator size={16} color={colors.primary} /> : <Ionicons name="language" size={18} color={colors.primary} />}
+                              <Text style={[styles.summarizeButtonText, { color: colors.primary, marginLeft: 6 }]}>Translate</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.summarizeButton, { marginTop: 6 }]} onPress={() => {
+                              const summary = summarizeTextCore(ocrText || '');
+                              showSummaryResult('OCR Summary', summary);
+                            }}>
+                              <Ionicons name="bulb" size={18} color={colors.primary} />
+                              <Text style={[styles.summarizeButtonText, { color: colors.primary, marginLeft: 6 }]}>Summarize</Text>
+                            </TouchableOpacity>
+                          </>
+                        )}
                         {ocrTranslation && (
-                          <Text style={{ fontSize: 14, marginTop: 4, color: colors.primary }}>
+                          <Text style={{ fontSize: 14, marginTop: 2, color: colors.primary }}>
                             Translation: {ocrTranslation}
                           </Text>
                         )}
@@ -729,24 +1306,44 @@ export default function RealChatScreen() {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}> 
-      <Stack.Screen options={{ headerTitle: params.name || 'Chat' }} />
+      <Stack.Screen
+        options={{
+          headerTitle: () => (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <UserAvatar
+                uri={chatPeer?.profilePictureUrl || null}
+                name={chatPeer?.name || params.name || 'Chat'}
+                size={34}
+              />
+              <View style={{ marginLeft: rs(8) }}>
+                <Text style={{ color: colors.text, fontSize: rms(16), fontWeight: '700' }}>
+                  {chatPeer?.name || params.name || 'Chat'}
+                </Text>
+                <Text style={{ color: isOtherTyping ? colors.primary : colors.textSecondary, fontSize: rms(12) }}>
+                  {getHeaderSubtitle()}
+                </Text>
+              </View>
+            </View>
+          ),
+        }}
+      />
       <KeyboardAvoidingView
         style={styles.flexOne}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         <FlatList
           data={messages}
           renderItem={renderMessageItem}
           keyExtractor={(item) => item._id}
-          style={styles.messageList}
+          style={[styles.messageList, isWeb ? { maxWidth: webChatWidth, alignSelf: 'center', width: '100%' } : null]}
           inverted
         />
         {/* Summarize bar */}
         {selectMode && (
-          <View style={styles.summarizeBar}>
-            <Text style={styles.summarizeText}>{selectedIds.length} selected</Text>
-            <TouchableOpacity style={styles.summarizeButton} onPress={handleSummarize} disabled={selectedIds.length === 0}>
+          <View style={[styles.summarizeBar, isWeb ? { maxWidth: webChatWidth, alignSelf: 'center', width: '100%' } : null, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+            <Text style={[styles.summarizeText, { color: colors.text }]}>{selectedIds.length} selected</Text>
+            <TouchableOpacity style={[styles.summarizeButton, { backgroundColor: colors.card }]} onPress={handleSummarize} disabled={selectedIds.length === 0}>
               <Ionicons name="bulb" size={20} color={colors.primary} />
               <Text style={[styles.summarizeButtonText, { color: colors.primary }]}>Summarize</Text>
             </TouchableOpacity>
@@ -755,7 +1352,7 @@ export default function RealChatScreen() {
             </TouchableOpacity>
           </View>
         )}
-        <View style={[styles.inputBarFloating, { backgroundColor: colors.background, marginBottom: Math.max(insets.bottom, 12) }]}> 
+        <View style={[styles.inputBarFloating, isWeb ? { maxWidth: webChatWidth, alignSelf: 'center', width: '100%' } : null, { backgroundColor: colors.background, marginBottom: Math.max(insets.bottom, 12) + (Platform.OS === 'android' ? keyboardHeight : 0) }]}> 
           <View style={[styles.inputContainer, { borderTopColor: borderColor, backgroundColor: colors.background, borderRadius: 24, elevation: 8 }]}> 
             <TouchableOpacity onPress={handlePickImage} style={styles.attachButton} disabled={uploading}>
               <Ionicons name="image" size={24} color={iconColor} />
@@ -767,7 +1364,7 @@ export default function RealChatScreen() {
             <TextInput
               style={[styles.textInput, { color: isDark ? '#fff' : colors.text, backgroundColor: inputBackgroundColor, borderWidth: 1, borderColor: borderColor }]}
               value={inputText}
-              onChangeText={setInputText}
+              onChangeText={handleInputChange}
               placeholder="Type a message..."
               placeholderTextColor={isDark ? '#ccc' : placeholderColor}
               returnKeyType="send"
@@ -785,6 +1382,22 @@ export default function RealChatScreen() {
           </View>
         </View>
       </KeyboardAvoidingView>
+      {summaryVisible && (
+        <View style={styles.summaryOverlay}>
+          <TouchableOpacity style={styles.summaryBackdrop} onPress={() => setSummaryVisible(false)} />
+          <View style={[styles.summaryModal, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+            <View style={styles.summaryHeader}>
+              <Text style={[styles.summaryTitle, { color: colors.text }]}>{summaryTitle}</Text>
+              <TouchableOpacity onPress={() => setSummaryVisible(false)}>
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.summaryBody}>
+              <Text style={[styles.summaryContent, { color: colors.text }]}>{summaryText}</Text>
+            </ScrollView>
+          </View>
+        </View>
+      )}
       {/* Modal for message options */}
       {optionsVisible && renderOptionsModal()}
     </SafeAreaView>
@@ -807,13 +1420,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#F8F8F8',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: rs(8),
+    paddingHorizontal: rs(16),
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
   summarizeText: {
-    fontSize: 15,
+    fontSize: rms(15),
     color: '#333',
     fontWeight: '500',
   },
@@ -821,15 +1434,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#E8F0FF',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginHorizontal: 8,
+    borderRadius: rs(8),
+    paddingHorizontal: rs(12),
+    paddingVertical: rs(6),
+    marginHorizontal: rs(8),
   },
   summarizeButtonText: {
-    fontSize: 15,
+    fontSize: rms(15),
     fontWeight: '600',
-    marginLeft: 6,
+    marginLeft: rs(6),
   },
   summarizeCancel: {
     padding: 6,
@@ -838,6 +1451,49 @@ const styles = StyleSheet.create({
   summarizeToggle: {
     marginLeft: 8,
     padding: 4,
+  },
+  summaryOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 120,
+  },
+  summaryBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  summaryModal: {
+    width: '92%',
+    maxWidth: rs(680),
+    borderRadius: rs(14),
+    borderWidth: 1,
+    padding: rs(14),
+    maxHeight: '72%',
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: rs(8),
+  },
+  summaryTitle: {
+    fontSize: rms(18),
+    fontWeight: '700',
+  },
+  summaryBody: {
+    maxHeight: rs(420),
+  },
+  summaryContent: {
+    fontSize: rms(15),
+    lineHeight: rms(22),
   },
   modalOverlay: {
     position: 'absolute',
@@ -859,99 +1515,99 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 24,
-    minWidth: 220,
+    borderRadius: rs(16),
+    padding: rs(22),
+    minWidth: rs(220),
     alignItems: 'center',
     elevation: 8,
     zIndex: 101,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: rms(18),
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: rs(16),
   },
   modalButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    paddingVertical: rs(12),
+    paddingHorizontal: rs(24),
+    borderRadius: rs(8),
     marginVertical: 4,
     backgroundColor: '#F0F0F0',
     width: '100%',
     alignItems: 'center',
   },
   modalButtonText: {
-    fontSize: 16,
+    fontSize: rms(16),
     color: '#333',
     fontWeight: '500',
   },
   safeArea: { flex: 1 },
   flexOne: { flex: 1 },
-  messageList: { flex: 1, paddingHorizontal: 10 },
-  messageRow: { flexDirection: 'row', marginVertical: 5 },
+  messageList: { flex: 1, paddingHorizontal: rs(10) },
+  messageRow: { flexDirection: 'row', marginVertical: rs(5) },
   messageBubble: {
-  paddingVertical: 10,
-  paddingHorizontal: 15,
-  borderRadius: 20,
+  paddingVertical: rs(10),
+  paddingHorizontal: rs(15),
+  borderRadius: rs(20),
   maxWidth: '80%',
   alignSelf: 'flex-start',
   },
   inputContainer: {
     flexDirection: 'row',
-    padding: 10,
+    padding: rs(10),
     alignItems: 'center',
     borderTopWidth: 1,
   },
   textInput: {
     flex: 1,
-    minHeight: 40,
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    marginRight: 10,
-    paddingVertical: 8,
+    minHeight: rs(40),
+    borderRadius: rs(20),
+    paddingHorizontal: rs(15),
+    marginRight: rs(10),
+    paddingVertical: rs(8),
   },
-  sendButton: { padding: 5 },
+  sendButton: { padding: rs(5) },
   attachButton: {
-    padding: 6,
-    marginRight: 6,
+    padding: rs(6),
+    marginRight: rs(6),
   },
   messageText: {
-    fontSize: 15,
+    fontSize: rms(15),
     flexWrap: 'wrap',
     marginBottom: 2,
   },
   imagePreview: {
-    width: 180,
-    height: 180,
-    borderRadius: 12,
-    marginBottom: 6,
+    width: rs(180),
+    height: rs(180),
+    borderRadius: rs(12),
+    marginBottom: rs(6),
   },
   fileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    maxWidth: 220,
-    marginBottom: 6,
+    gap: rs(8),
+    maxWidth: rs(220),
+    marginBottom: rs(6),
   },
   fileName: {
-    marginLeft: 6,
-    fontSize: 14,
+    marginLeft: rs(6),
+    fontSize: rms(14),
     flexShrink: 1,
   },
   originalText: {
-    fontSize: 12,
+    fontSize: rms(12),
     fontStyle: 'italic',
     marginTop: 2,
     opacity: 0.8,
     flexWrap: 'wrap',
   },
   sentimentLabel: {
-    fontSize: 11,
+    fontSize: rms(11),
     opacity: 0.7,
-    marginRight: 10,
+    marginRight: rs(10),
   },
   timeLabel: {
-    fontSize: 11,
+    fontSize: rms(11),
     opacity: 0.7,
   },
 });

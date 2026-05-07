@@ -223,6 +223,8 @@ router.get('/requests/sent', auth, async (req, res) => {
 router.get('/list', auth, async (req, res) => {
   try {
     const friends = await FriendRequest.getFriendsList(req.user._id);
+    const io = req.app.get('io');
+    const connectedUsers = io?.connectedUsers;
 
     // Get conversations for each friend
     const friendsWithConversations = await Promise.all(
@@ -233,7 +235,7 @@ router.get('/list', auth, async (req, res) => {
           username: friend.username,
           nickname: friend.nickname,
           profilePictureUrl: friend.profilePictureUrl,
-          isOnline: friend.isOnline,
+          isOnline: Boolean(connectedUsers?.get(friend._id.toString())),
           lastSeen: friend.lastSeen,
           conversationId: conversation ? conversation._id : null,
           lastMessageText: conversation ? conversation.lastMessageText : '',

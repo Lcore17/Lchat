@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { encryptMessageText, decryptMessageText } = require('../../utils/messageCrypto');
 
 const messageSchema = new mongoose.Schema({
   conversationId: {
@@ -14,11 +15,15 @@ const messageSchema = new mongoose.Schema({
   textOriginal: {
     type: String,
     required: true,
-    maxlength: 4000
+    maxlength: 50000,
+    set: encryptMessageText,
+    get: decryptMessageText
   },
   textPreprocessed: {
     type: String,
-    maxlength: 4000
+    maxlength: 50000,
+    set: encryptMessageText,
+    get: decryptMessageText
   },
   // Removed: textTranslated, targetLanguage, isTranslated
   messageType: {
@@ -99,7 +104,9 @@ const messageSchema = new mongoose.Schema({
     default: 'neutral'
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { getters: true },
+  toObject: { getters: true }
 });
 
 // Indexes for efficient queries

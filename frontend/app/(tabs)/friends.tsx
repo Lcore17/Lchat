@@ -8,11 +8,13 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { apiService } from '@/services/apiService';
 import { UserAvatar } from '@/components/UserAvatar';
 import { Feather } from '@expo/vector-icons';
+import { rms, rs } from '@/utils/responsive';
 
 interface User {
   id: string;
@@ -29,6 +31,7 @@ interface FriendshipStatus {
 }
 
 export default function SearchScreen() {
+  const isWeb = Platform.OS === 'web';
   // ...existing code...
 
   // ...existing code...
@@ -40,7 +43,7 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
 
   const { colors } = useTheme();
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const performSearch = useCallback(async (query: string) => {
     setLoading(true);
@@ -182,7 +185,19 @@ export default function SearchScreen() {
   };
 
   const renderUser = ({ item }: { item: User }) => (
-    <View style={[styles.userItem, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+    <View
+      style={[
+        styles.userItem,
+        { backgroundColor: colors.surface, borderBottomColor: colors.border },
+        isWeb && {
+          marginHorizontal: rs(12),
+          marginTop: rs(10),
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: rs(12),
+        },
+      ]}
+    > 
       <View style={styles.avatarContainer}>
         <UserAvatar uri={item.profilePictureUrl} name={item.nickname || item.username} size={56} />
         {item.isOnline && <View style={[styles.onlineIndicator, { backgroundColor: colors.success }]} />}
@@ -201,31 +216,50 @@ export default function SearchScreen() {
   );
 
   const dynamicStyles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background },
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+      width: '100%',
+      maxWidth: isWeb ? 1600 : undefined,
+      alignSelf: isWeb ? 'center' : undefined,
+      paddingHorizontal: isWeb ? rs(12) : 0,
+      paddingTop: isWeb ? rs(16) : 0,
+    },
     header: {
       backgroundColor: colors.surface,
-      paddingTop: 48,
-      paddingHorizontal: 20,
-      paddingBottom: 16,
+      paddingTop: isWeb ? rs(24) : rs(44),
+      paddingHorizontal: rs(18),
+      paddingBottom: rs(14),
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
+      borderRadius: isWeb ? rs(14) : 0,
+      borderWidth: isWeb ? 1 : 0,
     },
-    headerTitle: { fontSize: 28, fontWeight: 'bold', color: colors.text, marginBottom: 16 },
+    headerTitle: { fontSize: rms(28), fontWeight: 'bold', color: colors.text, marginBottom: rs(14) },
     searchContainer: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.background,
-      borderRadius: 12,
-      paddingHorizontal: 12,
+      borderRadius: rs(12),
+      paddingHorizontal: rs(12),
       borderWidth: 1,
       borderColor: colors.border,
     },
-    searchIcon: { marginRight: 8 },
-    searchInput: { flex: 1, height: 44, fontSize: 16, color: colors.text },
-    loadingContainer: { padding: 20, alignItems: 'center' },
-    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
-    emptyText: { fontSize: 18, color: colors.textSecondary, textAlign: 'center', marginTop: 16 },
-    emptySubText: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: 8 },
+    searchIcon: { marginRight: rs(8) },
+    searchInput: { flex: 1, height: rs(44), fontSize: rms(16), color: colors.text },
+    loadingContainer: { padding: rs(20), alignItems: 'center' },
+    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: rs(28) },
+    emptyText: { fontSize: rms(18), color: colors.textSecondary, textAlign: 'center', marginTop: rs(14) },
+    emptySubText: { fontSize: rms(14), color: colors.textSecondary, textAlign: 'center', marginTop: rs(8) },
+    resultsContainer: {
+      marginTop: isWeb ? rs(12) : 0,
+      borderRadius: isWeb ? rs(14) : 0,
+      borderWidth: isWeb ? 1 : 0,
+      borderColor: colors.border,
+      backgroundColor: isWeb ? colors.surface : colors.background,
+      overflow: 'hidden',
+      flex: 1,
+    },
   });
 
   return (
@@ -268,41 +302,44 @@ export default function SearchScreen() {
         </View>
       )}
 
-      <FlatList
-        data={searchResults}
-        keyExtractor={(item) => item.id}
-        renderItem={renderUser}
-        showsVerticalScrollIndicator={false}
-      />
+      <View style={dynamicStyles.resultsContainer}>
+        <FlatList
+          data={searchResults}
+          keyExtractor={(item) => item.id}
+          renderItem={renderUser}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: isWeb ? rs(12) : 0 }}
+        />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  userItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
+  userItem: { flexDirection: 'row', alignItems: 'center', padding: rs(14), borderBottomWidth: 1 },
   avatarContainer: { position: 'relative' },
   onlineIndicator: {
     position: 'absolute',
     bottom: 2,
     right: 2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: rs(14),
+    height: rs(14),
+    borderRadius: rs(7),
     borderWidth: 2,
     borderColor: 'white',
   },
-  userInfo: { flex: 1, marginLeft: 12 },
-  userHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  userName: { fontSize: 16, fontWeight: '600' },
-  userUsername: { fontSize: 14 },
-  lastSeen: { fontSize: 12, marginTop: 2 },
+  userInfo: { flex: 1, marginLeft: rs(10) },
+  userHeader: { flexDirection: 'row', alignItems: 'center', gap: rs(8) },
+  userName: { fontSize: rms(16), fontWeight: '600' },
+  userUsername: { fontSize: rms(14) },
+  lastSeen: { fontSize: rms(12), marginTop: 2 },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 4,
+    paddingHorizontal: rs(12),
+    paddingVertical: rs(6),
+    borderRadius: rs(16),
+    gap: rs(4),
   },
-  actionButtonText: { fontSize: 12, fontWeight: '600', color: 'white' },
+  actionButtonText: { fontSize: rms(12), fontWeight: '600', color: 'white' },
 });

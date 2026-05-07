@@ -2,14 +2,14 @@ const express = require('express');
 const auth = require('../middleware/auth');
 const { validateRequest, translateSchema } = require('../middleware/validation');
 const { preprocessText } = require('../utils/preprocess');
-const { translateText } = require('../utils/translate');
+const { translateText, lookupPhraseInCsv, lookupCulturalIdiom, normalizeForLookup } = require('../utils/translate');
 
 const router = express.Router();
 
 // Translate text with preprocessing
 router.post('/', auth, validateRequest(translateSchema), async (req, res) => {
   try {
-    const { text, targetLanguage, enablePreprocessing = true } = req.body;
+    const { text, targetLanguage, sourceLanguage, enablePreprocessing = true } = req.body;
 
     let processedText = text;
     let preprocessingFlags = {
@@ -18,21 +18,83 @@ router.post('/', auth, validateRequest(translateSchema), async (req, res) => {
       hadSarcasm: false
     };
 
-    // Preprocess text if enabled
+    // Auto-detect source language (or use explicit sourceLanguage when provided)
+    const { detectLanguage } = require('../utils/translate');
+    let detectedLanguage = sourceLanguage || 'en';
+    if (!sourceLanguage) {
+      try {
+        const detectionResult = await detectLanguage(text);
+        detectedLanguage = detectionResult.language || 'en';
+      } catch (err) {
+        console.warn('Language detection failed, defaulting to en:', err);
+      }
+    }
+
+    // Idiom-first behavior for exact idiom matches
+    const strictIdiomMatch = await lookupCulturalIdiom(text, detectedLanguage, targetLanguage);
+    if (strictIdiomMatch) {
+      return res.json({
+        original: text,
+        preprocessed: text,
+        translated: strictIdiomMatch,
+        targetLanguage,
+        confidence: 1,
+        preprocessing: preprocessingFlags,
+        detectedLanguage,
+        source: 'idiom'
+      });
+    }
+
+    // Strict CSV behavior for specified pair
+    const strictCsvMatch = lookupPhraseInCsv(text, detectedLanguage, targetLanguage);
+    if (strictCsvMatch) {
+      return res.json({
+        original: text,
+        preprocessed: text,
+        translated: strictCsvMatch,
+        targetLanguage,
+        confidence: 1,
+        preprocessing: preprocessingFlags,
+        detectedLanguage,
+        source: 'csv'
+      });
+    }
+
+    // Preprocess text if enabled (only after strict CSV miss)
     if (enablePreprocessing) {
       const preprocessResult = await preprocessText(text);
       processedText = preprocessResult.processed;
       preprocessingFlags = preprocessResult.flags;
     }
 
-    // Auto-detect source language
-    const { detectLanguage } = require('../utils/translate');
-    let detectedLanguage = 'en';
-    try {
-      const detectionResult = await detectLanguage(processedText);
-      detectedLanguage = detectionResult.language || 'en';
-    } catch (err) {
-      console.warn('Language detection failed, defaulting to en:', err);
+    // Check idioms again after preprocessing normalization
+    const processedIdiomMatch = await lookupCulturalIdiom(processedText, detectedLanguage, targetLanguage);
+    if (processedIdiomMatch) {
+      return res.json({
+        original: text,
+        preprocessed: processedText,
+        translated: processedIdiomMatch,
+        targetLanguage,
+        confidence: 1,
+        preprocessing: preprocessingFlags,
+        detectedLanguage,
+        source: 'idiom'
+      });
+    }
+
+    // Check again after preprocessing normalization
+    const processedCsvMatch = lookupPhraseInCsv(processedText, detectedLanguage, targetLanguage);
+    if (processedCsvMatch) {
+      return res.json({
+        original: text,
+        preprocessed: processedText,
+        translated: processedCsvMatch,
+        targetLanguage,
+        confidence: 1,
+        preprocessing: preprocessingFlags,
+        detectedLanguage,
+        source: 'csv'
+      });
     }
 
     // Translate text using detected source language
@@ -56,7 +118,7 @@ router.post('/', auth, validateRequest(translateSchema), async (req, res) => {
           const lines = csv.split(/\r?\n/);
           for (const line of lines) {
             const [src, tgt] = line.split(',').map(s => s.replace(/^"|"$/g, '').trim());
-            if (src && src.toLowerCase() === processedText.trim().toLowerCase()) {
+            if (src && normalizeForLookup(src) === normalizeForLookup(processedText)) {
               found = true;
               break;
             }

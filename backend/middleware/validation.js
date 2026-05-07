@@ -15,10 +15,10 @@ const validateRequest = (schema) => {
 
 // Validation schemas
 const registerSchema = Joi.object({
-  email: Joi.string().email().required(),
-  username: Joi.string().alphanum().min(3).max(30).required(),
+  email: Joi.string().trim().email().required(),
+  username: Joi.string().trim().pattern(/^[a-zA-Z0-9_]+$/).min(3).max(30).required(),
   password: Joi.string().min(6).required(),
-  nickname: Joi.string().max(50).optional()
+  nickname: Joi.string().trim().max(50).optional()
 });
 
 const loginSchema = Joi.object({
@@ -47,7 +47,7 @@ const friendRequestSchema = Joi.object({
 });
 
 const translateSchema = Joi.object({
-  text: Joi.string().max(4000).required(),
+  text: Joi.string().max(50000).required(),
   targetLanguage: Joi.string().valid('en', 'mr', 'te', 'ta','hi').required(),
   enablePreprocessing: Joi.boolean().default(true)
 });

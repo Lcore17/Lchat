@@ -5,8 +5,9 @@ import { useAuth } from '@/context/AuthContext';
 import { apiService } from '@/services/apiService';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'react-native';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, TextInput, Alert, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { rms, rs } from '@/utils/responsive';
 
 interface PollOption {
   id: number;
@@ -45,6 +46,7 @@ interface Story {
 
 
 export default function StoriesScreen() {
+  const isWeb = Platform.OS === 'web';
   const { user } = useAuth();
   const handleDeleteStory = async (id: string) => {
     try {
@@ -209,7 +211,26 @@ export default function StoriesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}> 
-      <View style={[styles.header, { backgroundColor: colors.surface, paddingTop: 48, paddingBottom: 16, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: colors.border }]}> 
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: colors.surface,
+            paddingTop: isWeb ? rs(24) : rs(44),
+            paddingBottom: rs(14),
+            paddingHorizontal: rs(18),
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+          },
+          isWeb && {
+            borderRadius: rs(14),
+            borderWidth: 1,
+            borderColor: colors.border,
+            marginTop: rs(16),
+            marginHorizontal: rs(20),
+          },
+        ]}
+      > 
         <Text style={[styles.title, { color: colors.text }]}>Stories & Status</Text>
         <View style={styles.addStoryBar}>
           <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.addButton}>
@@ -227,7 +248,7 @@ export default function StoriesScreen() {
             activeOpacity={0.95}
             onLongPress={() => handleLongPressStory(item.id)}
           >
-            <View style={[styles.storyCard, { backgroundColor: colors.card }]}> 
+            <View style={[styles.storyCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Text style={[styles.storyUser, { color: colors.primary }]}>{item.user}</Text>
                 {((item.userId && user?.id && item.userId === user.id) || (!item.userId && item.user === (user?.nickname || user?.username))) && (
@@ -295,7 +316,7 @@ export default function StoriesScreen() {
               <Text style={[styles.storyTime, { color: colors.textSecondary }]}>{formatStoryTime(item.createdAt)}</Text>
               {/* Story Analytics: Views */}
               {typeof item.viewCount === 'number' && (
-                <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 2 }}>
+                <Text style={{ color: colors.textSecondary, fontSize: rms(14), marginBottom: 2 }}>
                   {item.viewCount} view{item.viewCount === 1 ? '' : 's'}
                 </Text>
               )}
@@ -304,8 +325,8 @@ export default function StoriesScreen() {
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 4 }}>
                   {item.reactionsStacked.map((r: StackedReaction, idx: number) => (
                     <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}>
-                      <Text style={{ fontSize: 18 }}>{r.emoji || r.type}</Text>
-                      <Text style={{ fontSize: 15, marginLeft: 2, color: colors.textSecondary }}>×{r.count}</Text>
+                      <Text style={{ fontSize: rms(18) }}>{r.emoji || r.type}</Text>
+                      <Text style={{ fontSize: rms(15), marginLeft: 2, color: colors.textSecondary }}>×{r.count}</Text>
                     </View>
                   ))}
                 </View>
@@ -328,7 +349,8 @@ export default function StoriesScreen() {
             </View>
           </TouchableOpacity>
         )}
-        contentContainerStyle={{ paddingBottom: 24 }}
+        style={isWeb ? { marginHorizontal: rs(20), marginTop: rs(12), borderWidth: 1, borderColor: colors.border, borderRadius: rs(14), overflow: 'hidden', backgroundColor: colors.surface } : undefined}
+        contentContainerStyle={{ paddingBottom: 24, paddingTop: isWeb ? rs(2) : 0 }}
         refreshing={refreshing}
         onRefresh={onRefresh}
       />
@@ -340,15 +362,15 @@ export default function StoriesScreen() {
             {reactionEmojis.map(emoji => (
               <TouchableOpacity
                 key={emoji}
-                style={{ marginHorizontal: 8, padding: 8, borderRadius: 16, backgroundColor: '#eee' }}
+                style={{ marginHorizontal: rs(8), padding: rs(8), borderRadius: rs(16), backgroundColor: '#eee' }}
                 onPress={() => reactionModal.storyId && handleReact(reactionModal.storyId, emoji)}
               >
-                <Text style={{ fontSize: 28 }}>{emoji}</Text>
+                <Text style={{ fontSize: rms(28) }}>{emoji}</Text>
               </TouchableOpacity>
             ))}
           </View>
           <TouchableOpacity onPress={() => setReactionModal({ visible: false, storyId: null })} style={{ marginTop: 24 }}>
-            <Text style={{ color: colors.text, fontSize: 16 }}>Cancel</Text>
+            <Text style={{ color: colors.text, fontSize: rms(16) }}>Cancel</Text>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -443,33 +465,44 @@ function formatStoryTime(createdAt: number) {
 }
 
 const styles = StyleSheet.create({
-  addStoryBar: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 16, marginBottom: 4 },
-  container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
-  title: { fontSize: 28, fontWeight: 'bold' },
-  addButton: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  addButtonText: { fontWeight: '600', fontSize: 16 },
-  storyCard: { borderRadius: 12, margin: 10, padding: 16, elevation: 2 },
-  storyUser: { fontWeight: 'bold', marginBottom: 4, fontSize: 16 },
-  storyContent: { fontSize: 16, marginBottom: 8 },
-  storyImage: { width: '100%', height: 220, borderRadius: 12, marginBottom: 8 },
-  storyTime: { fontSize: 14, marginBottom: 4, fontStyle: 'italic' },
-  pollContainer: { marginTop: 8 },
-  pollQuestion: { fontWeight: '600', marginBottom: 4, fontSize: 15 },
-  pollOption: { borderRadius: 8, padding: 8, marginVertical: 4 },
+  addStoryBar: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: rs(16), marginBottom: rs(4) },
+  container: {
+    flex: 1,
+    width: '100%',
+    maxWidth: Platform.OS === 'web' ? 1600 : undefined,
+    alignSelf: Platform.OS === 'web' ? 'center' : undefined,
+  },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: rs(16) },
+  title: { fontSize: rms(28), fontWeight: 'bold' },
+  addButton: { flexDirection: 'row', alignItems: 'center', gap: rs(6) },
+  addButtonText: { fontWeight: '600', fontSize: rms(16) },
+  storyCard: {
+    borderRadius: rs(12),
+    margin: rs(10),
+    padding: rs(14),
+    elevation: 2,
+    borderWidth: Platform.OS === 'web' ? 1 : 0,
+  },
+  storyUser: { fontWeight: 'bold', marginBottom: rs(4), fontSize: rms(16) },
+  storyContent: { fontSize: rms(16), marginBottom: rs(8) },
+  storyImage: { width: '100%', height: rs(220), borderRadius: rs(12), marginBottom: rs(8) },
+  storyTime: { fontSize: rms(14), marginBottom: rs(4), fontStyle: 'italic' },
+  pollContainer: { marginTop: rs(8) },
+  pollQuestion: { fontWeight: '600', marginBottom: rs(4), fontSize: rms(15) },
+  pollOption: { borderRadius: rs(8), padding: rs(8), marginVertical: rs(4) },
   pollOptionVoted: { backgroundColor: '#cce5ff' },
-  pollOptionText: { fontSize: 15 },
+  pollOptionText: { fontSize: rms(15) },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { borderRadius: 16, padding: 24, width: '90%' },
-  modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 12 },
-  input: { borderRadius: 8, padding: 10, marginVertical: 6 },
-  pollLabel: { marginTop: 10, fontWeight: '500' },
-  addOptionButton: { flexDirection: 'row', alignItems: 'center', marginVertical: 6 },
-  addOptionText: { marginLeft: 4 },
-  imagePickerButton: { flexDirection: 'row', alignItems: 'center', marginVertical: 8 },
-  imagePickerText: { marginLeft: 6, fontWeight: '500' },
-  previewImage: { width: '100%', height: 180, borderRadius: 12, marginBottom: 8 },
-  modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 18 },
-  modalButton: { borderRadius: 8, paddingVertical: 10, paddingHorizontal: 24 },
-  modalButtonText: { fontWeight: 'bold', fontSize: 16 },
+  modalContent: { borderRadius: rs(16), padding: rs(22), width: '90%' },
+  modalTitle: { fontSize: rms(22), fontWeight: 'bold', marginBottom: rs(12) },
+  input: { borderRadius: rs(8), padding: rs(10), marginVertical: rs(6) },
+  pollLabel: { marginTop: rs(10), fontWeight: '500' },
+  addOptionButton: { flexDirection: 'row', alignItems: 'center', marginVertical: rs(6) },
+  addOptionText: { marginLeft: rs(4) },
+  imagePickerButton: { flexDirection: 'row', alignItems: 'center', marginVertical: rs(8) },
+  imagePickerText: { marginLeft: rs(6), fontWeight: '500' },
+  previewImage: { width: '100%', height: rs(180), borderRadius: rs(12), marginBottom: rs(8) },
+  modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: rs(18) },
+  modalButton: { borderRadius: rs(8), paddingVertical: rs(10), paddingHorizontal: rs(24) },
+  modalButtonText: { fontWeight: 'bold', fontSize: rms(16) },
 });
